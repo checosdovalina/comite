@@ -1,0 +1,212 @@
+App de Roles y Asistencias para Comités Distritales
+1️⃣ ALCANCE GENERAL
+Objetivo
+
+Crear una aplicación web (y futura app móvil) que permita a múltiples comités distritales:
+
+Gestionar roles internos (presidencia, secretaría, consejería, etc.)
+
+Organizar asistencias por fecha y turno
+
+Visualizar calendarios y roles de forma clara y centralizada
+
+Usuarios objetivo
+
+Presidentes/as de comité
+
+Secretarios/as
+
+Consejeros/as
+
+Administradores institucionales
+
+2️⃣ ARQUITECTURA MULTI-COMITÉ (CRÍTICO)
+Requerimientos
+
+La app debe ser multi-tenant
+
+Cada Comité Distrital es una entidad independiente:
+
+Datos aislados
+
+Usuarios propios
+
+Calendarios propios
+
+Ejemplo
+
+Comité 09 Torreón
+
+Comité 12 Gómez Palacio
+
+Comité 03 Lerdo
+
+👉 Un usuario puede pertenecer a uno o varios comités con distintos roles.
+
+3️⃣ GESTIÓN DE USUARIOS
+Registro / Acceso
+
+Login por:
+
+Correo + contraseña
+
+(Futuro) Google / Microsoft
+
+Recuperación de contraseña
+
+Verificación de correo
+
+Perfil de usuario
+
+Nombre completo
+
+Correo
+
+Teléfono (opcional)
+
+Cargo dentro del comité
+
+Comité(s) asignado(s)
+
+4️⃣ ROLES Y PERMISOS (RBAC)
+Roles base del sistema
+
+Super Administrador
+
+Crea comités
+
+Asigna administradores
+
+Ve todos los datos
+
+Administrador de Comité
+
+Gestiona usuarios del comité
+
+Define roles internos
+
+Configura calendarios
+
+Roles internos del comité (configurables)
+
+Presidente/a
+
+Secretario/a
+
+Consejero/a
+
+(Permitir agregar roles personalizados)
+
+Permisos por rol
+
+Ver calendario
+
+Anotarse en turnos
+
+Editar roles
+
+Aprobar / rechazar asistencias
+
+Exportar información
+
+5️⃣ MÓDULO DE CALENDARIO Y ROLES
+Funcionalidades clave
+
+Calendario por:
+
+Día
+
+Semana
+
+Mes
+
+Vista tipo tabla (como la imagen que compartiste)
+
+Roles por:
+
+Fecha
+
+Turno (mañana / tarde / completo)
+
+Reglas configurables
+
+Máximo de personas por turno
+
+Fechas bloqueadas
+
+Horarios personalizados por comité
+
+6️⃣ ASIGNACIÓN DE ASISTENCIAS
+Requerimientos
+
+Usuarios pueden:
+
+Anotarse en una fecha y turno
+
+Ver cupos disponibles
+
+Cancelar su asistencia (con reglas)
+
+Administradores pueden:
+
+Asignar manualmente
+
+Reemplazar usuarios
+
+Bloquear fechas
+
+7️⃣ NOTIFICACIONES
+Tipos
+
+Confirmación de asistencia
+
+Recordatorio previo
+
+Cambios en roles o turnos
+
+Canales
+
+Correo electrónico
+
+(Futuro) WhatsApp Business API
+
+Notificaciones push (PWA)
+
+8️⃣ VISUALIZACIÓN Y REPORTES
+Dashboards
+
+Asistencias por comité
+
+Cumplimiento por rol
+
+Historial por persona
+
+Exportaciones
+
+PDF
+
+Excel
+
+Imagen para compartir por WhatsApp
+
+9️⃣ CONFIGURACIÓN POR COMITÉ
+
+Horarios laborales
+
+Días activos
+
+Roles permitidos
+
+Plantillas de calendario
+
+Identidad visual (logo, nombre)
+
+🔐 10️⃣ SEGURIDAD Y CONTROL
+
+Autorización por roles
+
+Logs de actividad
+
+Historial de cambios
+
+Protección contra edición no autorizada
