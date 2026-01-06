@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,9 +83,27 @@ export default function CalendarPage() {
     queryKey: ["/api/committees"],
   });
 
+  interface MembershipWithCommittee {
+    id: string;
+    committeeId: string;
+    isAdmin: boolean;
+    committee?: Committee;
+  }
+
+  const { data: myMemberships } = useQuery<MembershipWithCommittee[]>({
+    queryKey: ["/api/my-memberships"],
+  });
+
   const { data: myAttendances, isLoading: attendancesLoading } = useQuery<AttendanceWithDetails[]>({
     queryKey: ["/api/my-attendances"],
   });
+
+  // Auto-select committee for non-superadmin users
+  useEffect(() => {
+    if (!user?.isSuperAdmin && myMemberships && myMemberships.length > 0 && !selectedCommittee) {
+      setSelectedCommittee(myMemberships[0].committeeId);
+    }
+  }, [user?.isSuperAdmin, myMemberships, selectedCommittee]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
