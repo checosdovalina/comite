@@ -18,6 +18,7 @@ declare global {
       firstName: string | null;
       lastName: string | null;
       profileImageUrl: string | null;
+      isSuperAdmin: boolean;
     }
   }
 }
@@ -94,6 +95,7 @@ export function setupAuth(app: Express) {
             firstName: user.firstName,
             lastName: user.lastName,
             profileImageUrl: user.profileImageUrl,
+            isSuperAdmin: user.isSuperAdmin,
           });
         } catch (error) {
           return done(error);
@@ -118,6 +120,7 @@ export function setupAuth(app: Express) {
         firstName: user.firstName,
         lastName: user.lastName,
         profileImageUrl: user.profileImageUrl,
+        isSuperAdmin: user.isSuperAdmin,
       });
     } catch (error) {
       done(error);
@@ -149,6 +152,7 @@ export function registerAuthRoutes(app: Express) {
           firstName: user.firstName,
           lastName: user.lastName,
           profileImageUrl: user.profileImageUrl,
+          isSuperAdmin: user.isSuperAdmin,
         },
         (err) => {
           if (err) {
@@ -159,6 +163,7 @@ export function registerAuthRoutes(app: Express) {
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
+            isSuperAdmin: user.isSuperAdmin,
           });
         }
       );
@@ -190,6 +195,7 @@ export function registerAuthRoutes(app: Express) {
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
+          isSuperAdmin: user.isSuperAdmin,
         });
       });
     })(req, res, next);
