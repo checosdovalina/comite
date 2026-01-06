@@ -162,11 +162,12 @@ export function AppSidebar() {
                 side="top"
                 className="w-[--radix-popper-anchor-width]"
               >
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" data-testid="link-profile">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Mi Perfil
-                  </Link>
+                <DropdownMenuItem
+                  onClick={() => window.location.href = "/profile"}
+                  data-testid="link-profile"
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Mi Perfil
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
