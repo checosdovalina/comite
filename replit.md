@@ -79,8 +79,10 @@ Core entities:
 - drizzle-zod for schema validation
 
 ### Authentication
-- Replit Auth (OpenID Connect provider)
-- Required environment variables: `ISSUER_URL`, `REPL_ID`, `SESSION_SECRET`, `DATABASE_URL`
+- Custom email/password authentication with Passport.js local strategy
+- Password hashing: bcrypt with 12 salt rounds
+- Session management: PostgreSQL-backed sessions via connect-pg-simple
+- Required environment variable: `SESSION_SECRET`, `DATABASE_URL`
 
 ### Third-Party Libraries
 - **UI**: Radix UI primitives, Lucide icons, class-variance-authority
