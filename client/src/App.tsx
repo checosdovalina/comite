@@ -3,27 +3,90 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { AppSidebar } from "@/components/app-sidebar";
+import { useAuth } from "@/hooks/use-auth";
+import { Skeleton } from "@/components/ui/skeleton";
+
+import LandingPage from "@/pages/landing";
+import DashboardPage from "@/pages/dashboard";
+import CommitteesPage from "@/pages/committees";
+import CommitteeDetailPage from "@/pages/committee-detail";
+import CalendarPage from "@/pages/calendar";
+import AttendancesPage from "@/pages/attendances";
+import MembersPage from "@/pages/members";
+import ProfilePage from "@/pages/profile";
+import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
-function Router() {
+function AuthenticatedRouter() {
+  const sidebarStyle = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  };
+
   return (
-    <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
+    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+      <div className="flex h-screen w-full">
+        <AppSidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <header className="flex h-14 items-center justify-between gap-4 border-b px-4">
+            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <ThemeToggle />
+          </header>
+          <main className="flex-1 overflow-auto p-6">
+            <Switch>
+              <Route path="/" component={DashboardPage} />
+              <Route path="/committees" component={CommitteesPage} />
+              <Route path="/committees/:id" component={CommitteeDetailPage} />
+              <Route path="/calendar" component={CalendarPage} />
+              <Route path="/attendances" component={AttendancesPage} />
+              <Route path="/members" component={MembersPage} />
+              <Route path="/profile" component={ProfilePage} />
+              <Route path="/settings" component={SettingsPage} />
+              <Route component={NotFound} />
+            </Switch>
+          </main>
+        </div>
+      </div>
+    </SidebarProvider>
   );
+}
+
+function AppContent() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="space-y-4 text-center">
+          <Skeleton className="mx-auto h-12 w-12 rounded-full" />
+          <Skeleton className="mx-auto h-4 w-32" />
+          <p className="text-sm text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LandingPage />;
+  }
+
+  return <AuthenticatedRouter />;
 }
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="system" storageKey="comites-theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AppContent />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 
