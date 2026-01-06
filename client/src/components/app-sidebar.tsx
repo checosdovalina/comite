@@ -13,18 +13,10 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Building2,
   Calendar,
-  ChevronUp,
   Home,
   LogOut,
   Settings,
@@ -131,56 +123,45 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="w-full"
-                  data-testid="button-user-menu"
-                >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.profileImageUrl || undefined} />
-                    <AvatarFallback className="text-xs">
-                      {getInitials(user?.firstName, user?.lastName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-1 flex-col items-start text-left text-sm">
-                    <span className="font-medium">
-                      {user?.firstName} {user?.lastName}
-                    </span>
-                    <span className="text-xs text-muted-foreground truncate max-w-[140px]">
-                      {user?.email}
-                    </span>
-                  </div>
-                  <ChevronUp className="h-4 w-4" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="top"
-                className="w-[--radix-popper-anchor-width]"
-              >
-                <DropdownMenuItem
-                  onClick={() => window.location.href = "/profile"}
-                  data-testid="link-profile"
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Mi Perfil
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => logout()}
-                  data-testid="button-logout"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Cerrar Sesión
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="border-t p-3">
+        <div className="flex items-center gap-3 mb-3">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user?.profileImageUrl || undefined} />
+            <AvatarFallback className="text-xs">
+              {getInitials(user?.firstName, user?.lastName)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-1 flex-col items-start text-left text-sm min-w-0">
+            <span className="font-medium truncate max-w-full">
+              {user?.firstName} {user?.lastName}
+            </span>
+            <span className="text-xs text-muted-foreground truncate max-w-full">
+              {user?.email}
+            </span>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={() => window.location.href = "/profile"}
+            data-testid="link-profile"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Perfil
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={() => logout()}
+            data-testid="button-logout"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Salir
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
