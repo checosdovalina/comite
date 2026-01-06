@@ -349,7 +349,14 @@ export async function registerRoutes(
     try {
       const userId = req.user.id;
       const attendances = await storage.getUserAttendances(userId);
-      res.json(attendances);
+      const attendancesWithDetails = attendances.map((a) => ({
+        ...a,
+        date: a.slot?.date,
+        shift: a.slot?.shift,
+        committeeId: a.slot?.committeeId,
+        committeeName: a.slot?.committee?.name,
+      }));
+      res.json(attendancesWithDetails);
     } catch (error) {
       console.error("Error fetching attendances:", error);
       res.status(500).json({ message: "Failed to fetch attendances" });
@@ -435,6 +442,120 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting attendance:", error);
       res.status(500).json({ message: "Failed to delete attendance" });
+    }
+  });
+
+  app.get("/api/attendance-report", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { committeeId, startDate, endDate } = req.query as { committeeId?: string; startDate?: string; endDate?: string };
+      
+      if (!committeeId || !startDate || !endDate) {
+        return res.status(400).json({ message: "Committee ID, start date, and end date are required" });
+      }
+      
+      const userObj = await storage.getUserByEmail(req.user.email);
+      const isSuperAdmin = userObj?.isSuperAdmin === true;
+      const isAdmin = await isUserAdminOfCommittee(userId, committeeId);
+      
+      if (!isSuperAdmin && !isAdmin) {
+        return res.status(403).json({ message: "Only admins can view attendance reports" });
+      }
+      
+      const slots = await storage.getAttendanceSlots(committeeId, startDate, endDate);
+      
+      const report = slots.flatMap((slot) => 
+        (slot.attendances || [])
+          .filter((a) => a.status === "confirmed")
+          .map((a) => ({
+            id: a.id,
+            date: slot.date,
+            shift: slot.shift,
+            userId: a.userId,
+            userName: a.user ? `${a.user.firstName} ${a.user.lastName}` : "Usuario desconocido",
+            userEmail: a.user?.email || "",
+            registeredAt: a.registeredAt,
+          }))
+      );
+      
+      report.sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.shift === "morning" ? -1 : 1;
+      });
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching attendance report:", error);
+      res.status(500).json({ message: "Failed to fetch attendance report" });
+    }
+  });
+
+  app.post("/api/mark-attendance", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { committeeId, date, shift } = req.body;
+      
+      if (!committeeId || !date || !shift) {
+        return res.status(400).json({ message: "Committee, date, and shift are required" });
+      }
+      
+      if (!["morning", "afternoon"].includes(shift)) {
+        return res.status(400).json({ message: "Invalid shift. Must be 'morning' or 'afternoon'" });
+      }
+      
+      const isMember = await isUserMemberOfCommittee(userId, committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this committee" });
+      }
+      
+      const committee = await storage.getCommittee(committeeId);
+      if (!committee) {
+        return res.status(404).json({ message: "Committee not found" });
+      }
+      
+      let slot = await storage.getSlotByDateAndShift(committeeId, date, shift);
+      
+      if (!slot) {
+        slot = await storage.createAttendanceSlot({
+          committeeId,
+          date,
+          shift,
+          maxCapacity: committee.maxPerShift,
+          isBlocked: false,
+        });
+      }
+      
+      if (slot.isBlocked) {
+        return res.status(400).json({ message: "This slot is blocked" });
+      }
+      
+      const existingAttendances = await storage.getAttendances(slot.id);
+      const userAlreadyConfirmed = existingAttendances.some(
+        (a) => a.userId === userId && a.status === "confirmed"
+      );
+      
+      if (userAlreadyConfirmed) {
+        return res.status(400).json({ message: "Ya tienes asistencia registrada para este turno" });
+      }
+      
+      try {
+        const attendance = await storage.createAttendance({
+          slotId: slot.id,
+          userId,
+          status: "confirmed",
+        });
+        
+        res.status(201).json(attendance);
+      } catch (error: any) {
+        if (error.message === 'ALREADY_REGISTERED') {
+          return res.status(400).json({ message: "Ya tienes asistencia registrada para este turno" });
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Error marking attendance:", error);
+      res.status(500).json({ message: "Failed to mark attendance" });
     }
   });
 

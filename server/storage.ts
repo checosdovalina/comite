@@ -34,6 +34,7 @@ export interface IStorage {
   
   getAttendanceSlots(committeeId: string, startDate: string, endDate: string): Promise<(AttendanceSlot & { attendances?: (Attendance & { user?: User })[] })[]>;
   getAttendanceSlot(id: string): Promise<AttendanceSlot | undefined>;
+  getSlotByDateAndShift(committeeId: string, date: string, shift: string): Promise<AttendanceSlot | undefined>;
   createAttendanceSlot(data: InsertAttendanceSlot): Promise<AttendanceSlot>;
   updateAttendanceSlot(id: string, data: Partial<InsertAttendanceSlot>): Promise<AttendanceSlot | undefined>;
   getUpcomingSlots(userId: string): Promise<(AttendanceSlot & { committeeName: string })[]>;
@@ -187,6 +188,20 @@ export class DatabaseStorage implements IStorage {
 
   async getAttendanceSlot(id: string): Promise<AttendanceSlot | undefined> {
     const [slot] = await db.select().from(attendanceSlots).where(eq(attendanceSlots.id, id));
+    return slot;
+  }
+
+  async getSlotByDateAndShift(committeeId: string, date: string, shift: string): Promise<AttendanceSlot | undefined> {
+    const [slot] = await db
+      .select()
+      .from(attendanceSlots)
+      .where(
+        and(
+          eq(attendanceSlots.committeeId, committeeId),
+          eq(attendanceSlots.date, date),
+          eq(attendanceSlots.shift, shift as any)
+        )
+      );
     return slot;
   }
 

@@ -22,6 +22,7 @@ import {
   Settings,
   Users,
   ClipboardList,
+  FileSpreadsheet,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -52,6 +53,11 @@ const adminNavItems = [
     title: "Miembros",
     url: "/members",
     icon: Users,
+  },
+  {
+    title: "Reportes",
+    url: "/attendance-reports",
+    icon: FileSpreadsheet,
   },
   {
     title: "Configuración",

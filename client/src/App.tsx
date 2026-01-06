@@ -18,6 +18,7 @@ import CommitteesPage from "@/pages/committees";
 import CommitteeDetailPage from "@/pages/committee-detail";
 import CalendarPage from "@/pages/calendar";
 import AttendancesPage from "@/pages/attendances";
+import AttendanceReportsPage from "@/pages/attendance-reports";
 import MembersPage from "@/pages/members";
 import ProfilePage from "@/pages/profile";
 import SettingsPage from "@/pages/settings";
@@ -46,6 +47,7 @@ function AuthenticatedRouter() {
               <Route path="/committees/:id" component={CommitteeDetailPage} />
               <Route path="/calendar" component={CalendarPage} />
               <Route path="/attendances" component={AttendancesPage} />
+              <Route path="/attendance-reports" component={AttendanceReportsPage} />
               <Route path="/members" component={MembersPage} />
               <Route path="/profile" component={ProfilePage} />
               <Route path="/settings" component={SettingsPage} />
