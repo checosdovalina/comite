@@ -18,7 +18,7 @@ async function isUserMemberOfCommittee(userId: string, committeeId: string): Pro
 async function isUserAdminOfCommittee(userId: string, committeeId: string): Promise<boolean> {
   const memberships = await storage.getUserMemberships(userId);
   const membership = memberships.find(m => m.committeeId === committeeId);
-  return membership?.role === 'admin';
+  return membership?.isAdmin === true;
 }
 
 function isSuperAdmin(req: any): boolean {
@@ -103,7 +103,8 @@ export async function registerRoutes(
       await storage.createCommitteeMember({
         committeeId: committee.id,
         userId,
-        role: "admin",
+        isAdmin: true,
+        leadershipRole: "none",
         isActive: true,
       });
       
@@ -135,7 +136,8 @@ export async function registerRoutes(
       const member = await storage.createCommitteeMember({
         committeeId,
         userId,
-        role: "member",
+        isAdmin: false,
+        leadershipRole: "none",
         isActive: true,
       });
       
@@ -181,7 +183,7 @@ export async function registerRoutes(
       const userMemberships = await storage.getUserMemberships(userId);
       
       const adminCommitteeIds = userMemberships
-        .filter(m => m.role === 'admin')
+        .filter(m => m.isAdmin === true)
         .map(m => m.committeeId);
       
       if (adminCommitteeIds.length === 0) {
@@ -227,7 +229,8 @@ export async function registerRoutes(
       const member = await storage.createCommitteeMember({
         committeeId,
         userId: userToAdd.id,
-        role: role || "member",
+        isAdmin: false,
+        leadershipRole: "none",
         isActive: true,
       });
       
@@ -240,24 +243,38 @@ export async function registerRoutes(
 
   app.patch("/api/committee-members/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.id;
-      const { role } = req.body;
-      
-      if (!role) {
-        return res.status(400).json({ message: "Role is required" });
-      }
+      const requesterId = req.user.id;
+      const { isAdmin: newIsAdmin, leadershipRole } = req.body;
       
       const member = await storage.getCommitteeMember(req.params.id);
       if (!member) {
         return res.status(404).json({ message: "Member not found" });
       }
       
-      const isAdmin = await isUserAdminOfCommittee(userId, member.committeeId);
-      if (!isAdmin) {
-        return res.status(403).json({ message: "Only admins can update member roles" });
+      const isRequesterAdmin = await isUserAdminOfCommittee(requesterId, member.committeeId);
+      const isSuperAdminUser = isSuperAdmin(req);
+      
+      const updateData: any = {};
+      
+      if (newIsAdmin !== undefined) {
+        if (!isRequesterAdmin && !isSuperAdminUser) {
+          return res.status(403).json({ message: "Solo administradores pueden promover a otros" });
+        }
+        updateData.isAdmin = newIsAdmin;
       }
       
-      const updatedMember = await storage.updateCommitteeMember(req.params.id, { role });
+      if (leadershipRole !== undefined) {
+        if (!isSuperAdminUser) {
+          return res.status(403).json({ message: "Solo el superadmin puede asignar roles de liderazgo" });
+        }
+        updateData.leadershipRole = leadershipRole;
+      }
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No hay cambios para actualizar" });
+      }
+      
+      const updatedMember = await storage.updateCommitteeMember(req.params.id, updateData);
       res.json(updatedMember);
     } catch (error) {
       console.error("Error updating member:", error);

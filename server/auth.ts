@@ -163,7 +163,8 @@ export function registerAuthRoutes(app: Express) {
       await storage.createCommitteeMember({
         committeeId,
         userId: user.id,
-        role: "member",
+        isAdmin: false,
+        leadershipRole: "none",
         isActive: true,
       });
 
