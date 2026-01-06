@@ -112,15 +112,15 @@ export default function CalendarPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/my-attendances"] });
       queryClient.invalidateQueries({ queryKey: ["/api/committees", selectedCommittee, "calendar-attendances"] });
       toast({
-        title: "Asistencia registrada",
-        description: "Tu asistencia ha sido marcada correctamente",
+        title: "Turno registrado",
+        description: "Tu turno ha sido registrado correctamente",
       });
       setIsDialogOpen(false);
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "No se pudo registrar tu asistencia",
+        description: error.message || "No se pudo registrar tu turno",
         variant: "destructive",
       });
     },
@@ -135,15 +135,15 @@ export default function CalendarPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/my-attendances"] });
       queryClient.invalidateQueries({ queryKey: ["/api/committees", selectedCommittee, "calendar-attendances"] });
       toast({
-        title: "Asistencia cancelada",
-        description: "Tu asistencia ha sido cancelada",
+        title: "Turno cancelado",
+        description: "Tu turno ha sido cancelado",
       });
       setIsDialogOpen(false);
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "No se pudo cancelar tu asistencia",
+        description: "No se pudo cancelar tu turno",
         variant: "destructive",
       });
     },
@@ -239,10 +239,10 @@ export default function CalendarPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">
-            Marcar Asistencia
+            Registrar Turno
           </h1>
           <p className="text-muted-foreground">
-            Selecciona una fecha para registrar tu asistencia
+            Selecciona una fecha para registrar tu turno
           </p>
         </div>
 
@@ -375,7 +375,7 @@ export default function CalendarPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Marcar Asistencia</DialogTitle>
+            <DialogTitle>Registrar Turno</DialogTitle>
             <DialogDescription>
               {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM yyyy", { locale: es })}
             </DialogDescription>
@@ -439,7 +439,7 @@ export default function CalendarPage() {
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-md">
                   <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
                     <Check className="h-5 w-5" />
-                    <span className="font-medium">Ya tienes asistencia registrada para este turno</span>
+                    <span className="font-medium">Ya tienes este turno registrado</span>
                   </div>
                 </div>
               ) : null}
@@ -460,7 +460,7 @@ export default function CalendarPage() {
                 data-testid="button-cancel-attendance"
               >
                 <X className="mr-2 h-4 w-4" />
-                {cancelAttendanceMutation.isPending ? "Cancelando..." : "Cancelar Asistencia"}
+                {cancelAttendanceMutation.isPending ? "Cancelando..." : "Cancelar Turno"}
               </Button>
             ) : (
               <Button
@@ -469,7 +469,7 @@ export default function CalendarPage() {
                 data-testid="button-mark-attendance"
               >
                 <Check className="mr-2 h-4 w-4" />
-                {markAttendanceMutation.isPending ? "Registrando..." : "Marcar Asistencia"}
+                {markAttendanceMutation.isPending ? "Registrando..." : "Registrar Turno"}
               </Button>
             )}
           </DialogFooter>
