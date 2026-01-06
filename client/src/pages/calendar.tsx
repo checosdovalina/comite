@@ -347,17 +347,37 @@ export default function CalendarPage() {
                         <div className="space-y-1">
                           {hasMorningMembers && (
                             <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 mb-0.5">
                                 <Sun className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{members.morning.length}</span>
+                                <span className="font-medium">Mañana</span>
+                              </div>
+                              <div className="space-y-0.5 pl-4">
+                                {members.morning.slice(0, 3).map((m) => (
+                                  <div key={m.id} className="truncate text-[10px]">
+                                    {m.userName}
+                                  </div>
+                                ))}
+                                {members.morning.length > 3 && (
+                                  <div className="text-[10px] opacity-70">+{members.morning.length - 3} más</div>
+                                )}
                               </div>
                             </div>
                           )}
                           {hasAfternoonMembers && (
                             <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.afternoon ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"}`}>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 mb-0.5">
                                 <Sunset className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{members.afternoon.length}</span>
+                                <span className="font-medium">Tarde</span>
+                              </div>
+                              <div className="space-y-0.5 pl-4">
+                                {members.afternoon.slice(0, 3).map((m) => (
+                                  <div key={m.id} className="truncate text-[10px]">
+                                    {m.userName}
+                                  </div>
+                                ))}
+                                {members.afternoon.length > 3 && (
+                                  <div className="text-[10px] opacity-70">+{members.afternoon.length - 3} más</div>
+                                )}
                               </div>
                             </div>
                           )}
