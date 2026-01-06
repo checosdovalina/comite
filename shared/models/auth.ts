@@ -38,6 +38,7 @@ export const registerSchema = z.object({
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
   firstName: z.string().min(1, "El nombre es requerido"),
   lastName: z.string().min(1, "El apellido es requerido"),
+  committeeId: z.string().min(1, "Debes seleccionar un comité"),
 });
 
 export const loginSchema = z.object({

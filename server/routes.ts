@@ -32,6 +32,22 @@ export async function registerRoutes(
   setupAuth(app);
   registerAuthRoutes(app);
 
+  // Public endpoint for registration - get active committees
+  app.get("/api/public/committees", async (req, res) => {
+    try {
+      const allCommittees = await storage.getAllCommittees();
+      const publicData = allCommittees.map(c => ({
+        id: c.id,
+        name: c.name,
+        code: c.code,
+      }));
+      res.json(publicData);
+    } catch (error) {
+      console.error("Error fetching public committees:", error);
+      res.status(500).json({ message: "Failed to fetch committees" });
+    }
+  });
+
   app.get("/api/committees", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -179,6 +195,46 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching all members:", error);
       res.status(500).json({ message: "Failed to fetch members" });
+    }
+  });
+
+  app.post("/api/committee-members", isAuthenticated, async (req: any, res) => {
+    try {
+      const requesterId = req.user.id;
+      const { committeeId, userEmail, role } = req.body;
+      
+      if (!committeeId || !userEmail) {
+        return res.status(400).json({ message: "Committee ID and user email are required" });
+      }
+      
+      const isAdmin = await isUserAdminOfCommittee(requesterId, committeeId);
+      const isSuperAdminUser = isSuperAdmin(req);
+      
+      if (!isAdmin && !isSuperAdminUser) {
+        return res.status(403).json({ message: "Solo administradores pueden agregar miembros" });
+      }
+      
+      const userToAdd = await storage.getUserByEmail(userEmail);
+      if (!userToAdd) {
+        return res.status(404).json({ message: "No se encontró un usuario con ese correo" });
+      }
+      
+      const existingMember = await isUserMemberOfCommittee(userToAdd.id, committeeId);
+      if (existingMember) {
+        return res.status(400).json({ message: "El usuario ya es miembro de este comité" });
+      }
+      
+      const member = await storage.createCommitteeMember({
+        committeeId,
+        userId: userToAdd.id,
+        role: role || "member",
+        isActive: true,
+      });
+      
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error adding member:", error);
+      res.status(500).json({ message: "Error al agregar miembro" });
     }
   });
 

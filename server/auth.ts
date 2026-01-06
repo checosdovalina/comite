@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import { users, registerSchema, loginSchema } from "@shared/models/auth";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import { storage } from "./storage";
 
 const PgSession = connectPgSimple(session);
 
@@ -145,14 +146,26 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ message: result.error.errors[0].message });
       }
 
-      const { email, password, firstName, lastName } = result.data;
+      const { email, password, firstName, lastName, committeeId } = result.data;
 
       const existingUser = await findUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "Este correo ya está registrado" });
       }
 
+      const committee = await storage.getCommittee(committeeId);
+      if (!committee) {
+        return res.status(400).json({ message: "El comité seleccionado no existe" });
+      }
+
       const user = await createUser(email, password, firstName, lastName);
+
+      await storage.createCommitteeMember({
+        committeeId,
+        userId: user.id,
+        role: "member",
+        isActive: true,
+      });
 
       req.login(
         {

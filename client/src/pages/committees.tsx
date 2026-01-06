@@ -241,13 +241,14 @@ export default function CommitteesPage() {
         )}
       </div>
 
-      <Tabs defaultValue="my-committees" className="w-full">
-        <TabsList>
-          <TabsTrigger value="my-committees" data-testid="tab-my-committees">Mis Comités</TabsTrigger>
-          <TabsTrigger value="available" data-testid="tab-available">Disponibles</TabsTrigger>
-        </TabsList>
+      {isSuperAdmin ? (
+        <Tabs defaultValue="my-committees" className="w-full">
+          <TabsList>
+            <TabsTrigger value="my-committees" data-testid="tab-my-committees">Mis Comités</TabsTrigger>
+            <TabsTrigger value="available" data-testid="tab-available">Todos los Comités</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="my-committees" className="mt-4">
+          <TabsContent value="my-committees" className="mt-4">
           <div className="flex items-center gap-4 mb-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -448,7 +449,110 @@ export default function CommitteesPage() {
             </Card>
           )}
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar comités..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-committees-user"
+              />
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-12 w-12 rounded-md" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-32" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-4 w-full" />
+                    <div className="mt-4 flex gap-2">
+                      <Skeleton className="h-8 w-24" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredCommittees && filteredCommittees.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredCommittees.map((committee) => {
+                const membership = myMemberships?.find(
+                  (m) => m.committeeId === committee.id
+                );
+                return (
+                  <Card key={committee.id} data-testid={`card-committee-${committee.id}`}>
+                    <CardHeader>
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10">
+                          <Building2 className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-lg truncate">
+                            {committee.name}
+                          </CardTitle>
+                          <CardDescription className="flex items-center gap-2">
+                            <span>{committee.code}</span>
+                            {membership && (
+                              <Badge variant="secondary" className="text-xs">
+                                {roleLabels[membership.role] || membership.role}
+                              </Badge>
+                            )}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {committee.description && (
+                        <p className="mb-4 text-sm text-muted-foreground line-clamp-2">
+                          {committee.description}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={`/committees/${committee.id}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-view-${committee.id}`}>
+                            <Users className="mr-1 h-3 w-3" />
+                            Ver Detalles
+                          </Button>
+                        </Link>
+                        <Link href={`/calendar?committee=${committee.id}`}>
+                          <Button variant="ghost" size="sm" data-testid={`button-calendar-${committee.id}`}>
+                            <Calendar className="mr-1 h-3 w-3" />
+                            Calendario
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <Building2 className="h-12 w-12 text-muted-foreground/50" />
+                <h3 className="mt-4 text-lg font-medium">No estás en ningún comité</h3>
+                <p className="mt-2 text-center text-sm text-muted-foreground">
+                  Contacta al administrador para que te agregue a un comité
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   );
 }

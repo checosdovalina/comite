@@ -22,6 +22,7 @@ export interface IStorage {
   getCommittee(id: string): Promise<Committee | undefined>;
   createCommittee(data: InsertCommittee): Promise<Committee>;
   updateCommittee(id: string, data: Partial<InsertCommittee>): Promise<Committee | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   
   getCommitteeMembers(committeeId: string): Promise<(CommitteeMember & { user?: User })[]>;
   getCommitteeMember(id: string): Promise<CommitteeMember | undefined>;
@@ -52,6 +53,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCommittees(): Promise<Committee[]> {
     return await db.select().from(committees).where(eq(committees.isActive, true));
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return user;
   }
 
   async getCommittee(id: string): Promise<Committee | undefined> {

@@ -2,14 +2,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Users } from "lucide-react";
+
+interface PublicCommittee {
+  id: string;
+  name: string;
+  code: string;
+}
 
 const registerSchema = z.object({
   firstName: z.string().min(1, "El nombre es requerido"),
@@ -17,6 +24,7 @@ const registerSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
   confirmPassword: z.string(),
+  committeeId: z.string().min(1, "Debes seleccionar un comité"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Las contraseñas no coinciden",
   path: ["confirmPassword"],
@@ -28,6 +36,10 @@ export default function RegisterPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
+  const { data: committees, isLoading: committeesLoading } = useQuery<PublicCommittee[]>({
+    queryKey: ["/api/public/committees"],
+  });
+
   const form = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -36,6 +48,7 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      committeeId: "",
     },
   });
 
@@ -169,6 +182,34 @@ export default function RegisterPage() {
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="committeeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Comité</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-committee">
+                          <SelectValue placeholder={committeesLoading ? "Cargando..." : "Selecciona tu comité"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {committees?.map((committee) => (
+                          <SelectItem 
+                            key={committee.id} 
+                            value={committee.id}
+                            data-testid={`select-committee-${committee.id}`}
+                          >
+                            {committee.name} ({committee.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
