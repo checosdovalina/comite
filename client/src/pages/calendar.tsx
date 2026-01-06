@@ -56,6 +56,13 @@ interface SlotWithAttendances extends AttendanceSlot {
   attendances?: (Attendance & { user?: User })[];
 }
 
+interface MembershipWithCommittee {
+  id: string;
+  committeeId: string;
+  isAdmin: boolean;
+  committee?: Committee;
+}
+
 export default function CalendarPage() {
   const search = useSearch();
   const params = new URLSearchParams(search);
@@ -65,8 +72,19 @@ export default function CalendarPage() {
   const [selectedCommittee, setSelectedCommittee] = useState(initialCommitteeId);
   const [selectedSlot, setSelectedSlot] = useState<SlotWithAttendances | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [newSlotShift, setNewSlotShift] = useState<string>("morning");
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  const { data: memberships } = useQuery<MembershipWithCommittee[]>({
+    queryKey: ["/api/my-memberships"],
+  });
+  
+  const isAdminOfSelectedCommittee = memberships?.some(
+    m => m.committeeId === selectedCommittee && m.isAdmin === true
+  ) || user?.isSuperAdmin === true;
 
   const { data: committees, isLoading: committeesLoading } = useQuery<Committee[]>({
     queryKey: ["/api/committees"],
@@ -124,6 +142,50 @@ export default function CalendarPage() {
       });
     },
   });
+
+  const createSlotMutation = useMutation({
+    mutationFn: async (data: { committeeId: string; date: string; shift: string; maxCapacity: number }) => {
+      const response = await apiRequest("POST", "/api/attendance-slots", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-slots"] });
+      toast({
+        title: "Turno creado",
+        description: "El turno de asistencia se ha creado correctamente",
+      });
+      setIsCreateDialogOpen(false);
+      setNewSlotShift("morning");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo crear el turno",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateSlot = () => {
+    if (!selectedDate || !selectedCommittee) return;
+    
+    const selectedCommitteeData = committees?.find(c => c.id === selectedCommittee);
+    const maxCapacity = selectedCommitteeData?.maxPerShift || 2;
+    
+    createSlotMutation.mutate({
+      committeeId: selectedCommittee,
+      date: format(selectedDate, "yyyy-MM-dd"),
+      shift: newSlotShift,
+      maxCapacity,
+    });
+  };
+
+  const handleDayClick = (day: Date, daySlots: SlotWithAttendances[]) => {
+    if (daySlots.length === 0 && isAdminOfSelectedCommittee) {
+      setSelectedDate(day);
+      setIsCreateDialogOpen(true);
+    }
+  };
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
@@ -271,27 +333,36 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={index}
-                      className={`min-h-[100px] rounded-md border p-1 transition-colors ${
+                      className={`min-h-[100px] rounded-md border p-1 transition-colors cursor-pointer ${
                         !isCurrentMonth
                           ? "bg-muted/30 text-muted-foreground"
                           : isDayToday
                           ? "border-primary bg-primary/5"
                           : "hover:bg-muted/50"
                       }`}
+                      onClick={() => handleDayClick(day, daySlots)}
                       data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
                     >
                       <div
-                        className={`mb-1 text-right text-sm ${
+                        className={`mb-1 flex items-center justify-between text-sm ${
                           isDayToday ? "font-bold text-primary" : ""
                         }`}
                       >
-                        {format(day, "d")}
+                        <span></span>
+                        <span>{format(day, "d")}</span>
+                        {daySlots.length === 0 && isAdminOfSelectedCommittee && isCurrentMonth && (
+                          <Plus className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        {(daySlots.length > 0 || !isAdminOfSelectedCommittee || !isCurrentMonth) && (
+                          <span></span>
+                        )}
                       </div>
                       <div className="space-y-1">
                         {daySlots.slice(0, 2).map((slot) => (
                           <button
                             key={slot.id}
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedSlot(slot);
                               setIsDialogOpen(true);
                             }}
@@ -455,6 +526,50 @@ export default function CalendarPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear Turno de Asistencia</DialogTitle>
+            <DialogDescription>
+              {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM yyyy", { locale: es })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tipo de turno</label>
+              <Select value={newSlotShift} onValueChange={setNewSlotShift}>
+                <SelectTrigger data-testid="select-new-slot-shift">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="morning">Mañana</SelectItem>
+                  <SelectItem value="afternoon">Tarde</SelectItem>
+                  <SelectItem value="full_day">Día completo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateSlot}
+              disabled={createSlotMutation.isPending}
+              data-testid="button-create-slot"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {createSlotMutation.isPending ? "Creando..." : "Crear Turno"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
