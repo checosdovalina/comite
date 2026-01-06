@@ -180,8 +180,13 @@ export async function registerRoutes(
   app.get("/api/all-members", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const userMemberships = await storage.getUserMemberships(userId);
+      const allMembers = await storage.getAllMembers();
       
+      if (isSuperAdmin(req)) {
+        return res.json(allMembers);
+      }
+      
+      const userMemberships = await storage.getUserMemberships(userId);
       const adminCommitteeIds = userMemberships
         .filter(m => m.isAdmin === true)
         .map(m => m.committeeId);
@@ -190,7 +195,6 @@ export async function registerRoutes(
         return res.json([]);
       }
       
-      const allMembers = await storage.getAllMembers();
       const filteredMembers = allMembers.filter(m => adminCommitteeIds.includes(m.committeeId));
       
       res.json(filteredMembers);

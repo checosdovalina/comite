@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Users,
   Search,
@@ -30,6 +32,7 @@ import {
   Building2,
   UserCog,
   Filter,
+  Shield,
 } from "lucide-react";
 import type { CommitteeMember, Committee } from "@shared/schema";
 import type { User } from "@shared/models/auth";
@@ -44,6 +47,8 @@ export default function MembersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [committeeFilter, setCommitteeFilter] = useState<string>("all");
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.isSuperAdmin === true;
 
   const { data: members, isLoading: membersLoading } = useQuery<MemberWithDetails[]>({
     queryKey: ["/api/all-members"],
@@ -53,33 +58,53 @@ export default function MembersPage() {
     queryKey: ["/api/committees"],
   });
 
-  const updateRoleMutation = useMutation({
-    mutationFn: async ({ memberId, role }: { memberId: string; role: string }) => {
-      const response = await apiRequest("PATCH", `/api/committee-members/${memberId}`, { role });
+  const updateAdminMutation = useMutation({
+    mutationFn: async ({ memberId, isAdmin }: { memberId: string; isAdmin: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/committee-members/${memberId}`, { isAdmin });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/all-members"] });
+      toast({
+        title: "Admin actualizado",
+        description: "El estado de administrador se ha actualizado",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo actualizar el estado",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateLeadershipMutation = useMutation({
+    mutationFn: async ({ memberId, leadershipRole }: { memberId: string; leadershipRole: string }) => {
+      const response = await apiRequest("PATCH", `/api/committee-members/${memberId}`, { leadershipRole });
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/all-members"] });
       toast({
         title: "Rol actualizado",
-        description: "El rol del miembro se ha actualizado correctamente",
+        description: "El rol de liderazgo se ha actualizado",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "No se pudo actualizar el rol",
+        description: error.message || "No se pudo actualizar el rol",
         variant: "destructive",
       });
     },
   });
 
-  const roleLabels: Record<string, string> = {
-    admin: "Administrador",
+  const leadershipLabels: Record<string, string> = {
     president: "Presidente",
     secretary: "Secretario",
     counselor: "Consejero",
-    member: "Miembro",
+    none: "Sin cargo",
   };
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
@@ -94,7 +119,13 @@ export default function MembersPage() {
       member.user?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       member.user?.email?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesRole = roleFilter === "all" || member.role === roleFilter;
+    let matchesRole = true;
+    if (roleFilter === "admin") {
+      matchesRole = member.isAdmin === true;
+    } else if (roleFilter !== "all") {
+      matchesRole = member.leadershipRole === roleFilter;
+    }
+    
     const matchesCommittee =
       committeeFilter === "all" || member.committeeId === committeeFilter;
 
@@ -102,7 +133,7 @@ export default function MembersPage() {
   });
 
   const totalMembers = members?.length || 0;
-  const adminCount = members?.filter((m) => m.role === "admin").length || 0;
+  const adminCount = members?.filter((m) => m.isAdmin === true).length || 0;
   const activeCount = members?.filter((m) => m.isActive).length || 0;
 
   return (
@@ -195,12 +226,11 @@ export default function MembersPage() {
                   <SelectValue placeholder="Filtrar por rol" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos los roles</SelectItem>
-                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="admin">Administradores</SelectItem>
                   <SelectItem value="president">Presidente</SelectItem>
                   <SelectItem value="secretary">Secretario</SelectItem>
                   <SelectItem value="counselor">Consejero</SelectItem>
-                  <SelectItem value="member">Miembro</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={committeeFilter} onValueChange={setCommitteeFilter}>
@@ -233,7 +263,8 @@ export default function MembersPage() {
                   <TableHead>Miembro</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Comité</TableHead>
-                  <TableHead>Rol</TableHead>
+                  <TableHead>Admin</TableHead>
+                  <TableHead>Cargo</TableHead>
                   <TableHead>Estado</TableHead>
                 </TableRow>
               </TableHeader>
@@ -268,23 +299,42 @@ export default function MembersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={member.role}
-                        onValueChange={(value) =>
-                          updateRoleMutation.mutate({ memberId: member.id, role: value })
-                        }
-                      >
-                        <SelectTrigger className="w-36" data-testid={`select-role-${member.id}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Administrador</SelectItem>
-                          <SelectItem value="president">Presidente</SelectItem>
-                          <SelectItem value="secretary">Secretario</SelectItem>
-                          <SelectItem value="counselor">Consejero</SelectItem>
-                          <SelectItem value="member">Miembro</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={member.isAdmin}
+                          onCheckedChange={(checked) =>
+                            updateAdminMutation.mutate({ memberId: member.id, isAdmin: checked })
+                          }
+                          data-testid={`switch-admin-${member.id}`}
+                        />
+                        {member.isAdmin && (
+                          <Shield className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {isSuperAdmin ? (
+                        <Select
+                          value={member.leadershipRole}
+                          onValueChange={(value) =>
+                            updateLeadershipMutation.mutate({ memberId: member.id, leadershipRole: value })
+                          }
+                        >
+                          <SelectTrigger className="w-32" data-testid={`select-role-${member.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin cargo</SelectItem>
+                            <SelectItem value="president">Presidente</SelectItem>
+                            <SelectItem value="secretary">Secretario</SelectItem>
+                            <SelectItem value="counselor">Consejero</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="outline">
+                          {leadershipLabels[member.leadershipRole] || "Sin cargo"}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={member.isActive ? "default" : "secondary"}>
