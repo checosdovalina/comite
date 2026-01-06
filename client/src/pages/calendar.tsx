@@ -43,8 +43,11 @@ import {
   addDays,
   addMonths,
   subMonths,
+  addWeeks,
+  subWeeks,
   isSameMonth,
   isSameDay,
+  isSameWeek,
   isToday,
   parseISO,
 } from "date-fns";
@@ -67,6 +70,8 @@ interface CalendarAttendance {
   registeredAt: string;
 }
 
+type ViewMode = "day" | "week" | "month";
+
 export default function CalendarPage() {
   const search = useSearch();
   const params = new URLSearchParams(search);
@@ -77,6 +82,7 @@ export default function CalendarPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedShift, setSelectedShift] = useState<string>("morning");
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -106,15 +112,33 @@ export default function CalendarPage() {
     }
   }, [user?.isSuperAdmin, myMemberships, selectedCommittee]);
 
+  // Calculate date range based on view mode
+  const getDateRange = () => {
+    if (viewMode === "day") {
+      return { start: currentDate, end: currentDate };
+    } else if (viewMode === "week") {
+      return { 
+        start: startOfWeek(currentDate, { weekStartsOn: 1 }), 
+        end: endOfWeek(currentDate, { weekStartsOn: 1 }) 
+      };
+    } else {
+      return { 
+        start: startOfMonth(currentDate), 
+        end: endOfMonth(currentDate) 
+      };
+    }
+  };
+
+  const dateRange = getDateRange();
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
 
   const { data: calendarAttendances } = useQuery<CalendarAttendance[]>({
-    queryKey: ["/api/committees", selectedCommittee, "calendar-attendances", format(monthStart, "yyyy-MM-dd"), format(monthEnd, "yyyy-MM-dd")],
+    queryKey: ["/api/committees", selectedCommittee, "calendar-attendances", format(dateRange.start, "yyyy-MM-dd"), format(dateRange.end, "yyyy-MM-dd")],
     queryFn: async () => {
       if (!selectedCommittee) return [];
       const response = await fetch(
-        `/api/committees/${selectedCommittee}/calendar-attendances?startDate=${format(monthStart, "yyyy-MM-dd")}&endDate=${format(monthEnd, "yyyy-MM-dd")}`
+        `/api/committees/${selectedCommittee}/calendar-attendances?startDate=${format(dateRange.start, "yyyy-MM-dd")}&endDate=${format(dateRange.end, "yyyy-MM-dd")}`
       );
       if (!response.ok) throw new Error("Failed to fetch calendar attendances");
       return response.json();
@@ -180,6 +204,52 @@ export default function CalendarPage() {
     }
     return days;
   }, [calendarStart, calendarEnd]);
+
+  // Days for week view
+  const weekDaysArray = useMemo(() => {
+    const days: Date[] = [];
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+    for (let i = 0; i < 7; i++) {
+      days.push(addDays(weekStart, i));
+    }
+    return days;
+  }, [currentDate]);
+
+  // Navigation functions
+  const navigatePrevious = () => {
+    if (viewMode === "day") {
+      setCurrentDate(addDays(currentDate, -1));
+    } else if (viewMode === "week") {
+      setCurrentDate(subWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(subMonths(currentDate, 1));
+    }
+  };
+
+  const navigateNext = () => {
+    if (viewMode === "day") {
+      setCurrentDate(addDays(currentDate, 1));
+    } else if (viewMode === "week") {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(addMonths(currentDate, 1));
+    }
+  };
+
+  const getViewTitle = () => {
+    if (viewMode === "day") {
+      return format(currentDate, "EEEE, d 'de' MMMM yyyy", { locale: es });
+    } else if (viewMode === "week") {
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+      if (isSameMonth(weekStart, weekEnd)) {
+        return `${format(weekStart, "d", { locale: es })} - ${format(weekEnd, "d 'de' MMMM yyyy", { locale: es })}`;
+      }
+      return `${format(weekStart, "d MMM", { locale: es })} - ${format(weekEnd, "d MMM yyyy", { locale: es })}`;
+    } else {
+      return format(currentDate, "MMMM yyyy", { locale: es });
+    }
+  };
 
   const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -392,28 +462,67 @@ export default function CalendarPage() {
 
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-              data-testid="button-prev-month"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <CardTitle className="text-lg capitalize">
-              {format(currentDate, "MMMM yyyy", { locale: es })}
-            </CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-                data-testid="button-next-month"
+                onClick={navigatePrevious}
+                data-testid="button-nav-prev"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <CardTitle className="text-lg capitalize min-w-[180px] text-center">
+                {getViewTitle()}
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={navigateNext}
+                data-testid="button-nav-next"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              {selectedCommittee && calendarAttendances && calendarAttendances.length > 0 && (
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex border rounded-md">
+                <Button
+                  variant={viewMode === "day" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("day")}
+                  className="rounded-r-none"
+                  data-testid="button-view-day"
+                >
+                  Día
+                </Button>
+                <Button
+                  variant={viewMode === "week" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("week")}
+                  className="rounded-none border-x"
+                  data-testid="button-view-week"
+                >
+                  Semana
+                </Button>
+                <Button
+                  variant={viewMode === "month" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("month")}
+                  className="rounded-l-none"
+                  data-testid="button-view-month"
+                >
+                  Mes
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentDate(new Date())}
+                data-testid="button-today"
+              >
+                Hoy
+              </Button>
+              {selectedCommittee && calendarAttendances && calendarAttendances.length > 0 && viewMode === "month" && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -445,7 +554,154 @@ export default function CalendarPage() {
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-64 w-full" />
             </div>
+          ) : viewMode === "day" ? (
+            /* Day View */
+            <div className="space-y-4">
+              <div
+                onClick={() => handleDayClick(currentDate)}
+                className={`rounded-md border p-4 cursor-pointer transition-colors ${
+                  isToday(currentDate) ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                }`}
+                data-testid={`calendar-day-${format(currentDate, "yyyy-MM-dd")}`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`text-lg font-semibold ${isToday(currentDate) ? "text-primary" : ""}`}>
+                    {format(currentDate, "EEEE, d 'de' MMMM", { locale: es })}
+                  </div>
+                  {isToday(currentDate) && <Badge>Hoy</Badge>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Morning Section */}
+                  <div className={`p-4 rounded-md ${hasAttendanceOnDate(currentDate).morning ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Sun className="h-5 w-5" />
+                      <span className="font-semibold">Turno Mañana</span>
+                      {selectedCommitteeData && (
+                        <span className="text-sm text-muted-foreground">
+                          ({selectedCommitteeData.morningStart} - {selectedCommitteeData.morningEnd})
+                        </span>
+                      )}
+                    </div>
+                    {getMembersForDate(currentDate, "morning").length > 0 ? (
+                      <div className="space-y-2">
+                        {getMembersForDate(currentDate, "morning").map((m) => (
+                          <div key={m.id} className="flex items-center gap-2 text-sm">
+                            <span>{m.userName}</span>
+                            {m.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Sin registros</p>
+                    )}
+                  </div>
+                  {/* Afternoon Section */}
+                  <div className={`p-4 rounded-md ${hasAttendanceOnDate(currentDate).afternoon ? "bg-green-100 dark:bg-green-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Sunset className="h-5 w-5" />
+                      <span className="font-semibold">Turno Tarde</span>
+                      {selectedCommitteeData && (
+                        <span className="text-sm text-muted-foreground">
+                          ({selectedCommitteeData.afternoonStart} - {selectedCommitteeData.afternoonEnd})
+                        </span>
+                      )}
+                    </div>
+                    {getMembersForDate(currentDate, "afternoon").length > 0 ? (
+                      <div className="space-y-2">
+                        {getMembersForDate(currentDate, "afternoon").map((m) => (
+                          <div key={m.id} className="flex items-center gap-2 text-sm">
+                            <span>{m.userName}</span>
+                            {m.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Sin registros</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : viewMode === "week" ? (
+            /* Week View */
+            <>
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {weekDays.map((day) => (
+                  <div
+                    key={day}
+                    className="p-2 text-center text-sm font-medium text-muted-foreground"
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {weekDaysArray.map((day, index) => {
+                  const isDayToday = isToday(day);
+                  const myAttendance = hasAttendanceOnDate(day);
+                  const members = getMembersForDateBoth(day);
+                  const hasMorningMembers = members.morning.length > 0;
+                  const hasAfternoonMembers = members.afternoon.length > 0;
+
+                  return (
+                    <div
+                      key={index}
+                      onClick={() => handleDayClick(day)}
+                      className={`min-h-[140px] rounded-md border p-2 transition-colors cursor-pointer ${
+                        isDayToday
+                          ? "border-primary bg-primary/5 hover:bg-primary/10"
+                          : "hover:bg-muted/50"
+                      }`}
+                      data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
+                    >
+                      <div
+                        className={`text-right text-sm mb-1 ${
+                          isDayToday ? "font-bold text-primary" : ""
+                        }`}
+                      >
+                        {format(day, "d")}
+                      </div>
+                      {(hasMorningMembers || hasAfternoonMembers) && (
+                        <div className="space-y-1">
+                          {hasMorningMembers && (
+                            <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
+                              <div className="flex items-center gap-1 mb-0.5">
+                                <Sun className="h-3 w-3 flex-shrink-0" />
+                                <span className="font-medium">Mañana</span>
+                              </div>
+                              <div className="space-y-0.5 pl-4">
+                                {members.morning.map((m) => (
+                                  <div key={m.id} className="truncate text-[10px]">
+                                    {m.userName}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {hasAfternoonMembers && (
+                            <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.afternoon ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"}`}>
+                              <div className="flex items-center gap-1 mb-0.5">
+                                <Sunset className="h-3 w-3 flex-shrink-0" />
+                                <span className="font-medium">Tarde</span>
+                              </div>
+                              <div className="space-y-0.5 pl-4">
+                                {members.afternoon.map((m) => (
+                                  <div key={m.id} className="truncate text-[10px]">
+                                    {m.userName}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           ) : (
+            /* Month View */
             <>
               <div className="grid grid-cols-7 gap-1 mb-2">
                 {weekDays.map((day) => (
