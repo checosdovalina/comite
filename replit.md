@@ -1,8 +1,10 @@
-# Committee Management System
+# Committee Management System (Comités Distritales)
 
 ## Overview
 
 A multi-tenant web application for managing roles and attendance for district committees (Comités Distritales). The system allows multiple independent committees to manage internal roles (president, secretary, counselor, etc.), organize attendance by date and shift, and visualize calendars and roles in a centralized platform.
+
+**Current Status**: MVP Complete - All core features implemented and tested
 
 Key features:
 - Multi-committee architecture with isolated data per committee
@@ -10,6 +12,15 @@ Key features:
 - Attendance scheduling with morning/afternoon/full-day shifts
 - Calendar visualization for attendance slots
 - User profiles with committee membership tracking
+- Spanish language localization
+- Dark/light mode theme support
+
+## Security Features
+
+- Multi-tenant data isolation: All API endpoints verify user membership before returning committee data
+- Admin-only operations: Only admins can create attendance slots and manage members
+- Duplicate registration prevention: Database-level unique constraint prevents double-booking
+- User ownership verification: Users can only cancel their own attendance records
 
 ## User Preferences
 
