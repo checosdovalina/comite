@@ -14,7 +14,7 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <a href="/api/login">
+            <a href="/login">
               <Button data-testid="button-login">Iniciar Sesión</Button>
             </a>
           </div>
@@ -34,9 +34,14 @@ export default function LandingPage() {
               la participación de todos los miembros.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
-              <a href="/api/login">
+              <a href="/register">
                 <Button size="lg" data-testid="button-get-started">
-                  Comenzar Ahora
+                  Crear Cuenta
+                </Button>
+              </a>
+              <a href="/login">
+                <Button size="lg" variant="outline" data-testid="button-signin">
+                  Iniciar Sesión
                 </Button>
               </a>
             </div>
@@ -136,9 +141,9 @@ export default function LandingPage() {
             <p className="mb-8 text-muted-foreground">
               Únete a los comités distritales que ya optimizan su organización.
             </p>
-            <a href="/api/login">
-              <Button size="lg" data-testid="button-cta-login">
-                Iniciar Sesión
+            <a href="/register">
+              <Button size="lg" data-testid="button-cta-register">
+                Crear Cuenta Gratis
               </Button>
             </a>
           </div>

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
 import { insertCommitteeSchema, insertAttendanceSlotSchema } from "@shared/schema";
 import { z } from "zod";
 import {
@@ -25,12 +25,12 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  await setupAuth(app);
+  setupAuth(app);
   registerAuthRoutes(app);
 
   app.get("/api/committees", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const committees = await storage.getUserCommittees(userId);
       res.json(committees);
     } catch (error) {
@@ -41,7 +41,7 @@ export async function registerRoutes(
 
   app.get("/api/committees/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const committeeId = req.params.id;
       
       const isMember = await isUserMemberOfCommittee(userId, committeeId);
@@ -62,7 +62,7 @@ export async function registerRoutes(
 
   app.post("/api/committees", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validatedData = insertCommitteeSchema.parse(req.body);
       
       const committee = await storage.createCommittee(validatedData);
@@ -86,7 +86,7 @@ export async function registerRoutes(
 
   app.get("/api/committees/:id/members", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const committeeId = req.params.id;
       
       const isMember = await isUserMemberOfCommittee(userId, committeeId);
@@ -104,7 +104,7 @@ export async function registerRoutes(
 
   app.get("/api/my-memberships", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const memberships = await storage.getUserMemberships(userId);
       res.json(memberships);
     } catch (error) {
@@ -115,7 +115,7 @@ export async function registerRoutes(
 
   app.get("/api/all-members", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const userMemberships = await storage.getUserMemberships(userId);
       
       const adminCommitteeIds = userMemberships
@@ -138,7 +138,7 @@ export async function registerRoutes(
 
   app.patch("/api/committee-members/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { role } = req.body;
       
       if (!role) {
@@ -165,7 +165,7 @@ export async function registerRoutes(
 
   app.get("/api/attendance-slots", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const committeeId = req.query.committeeId as string;
       const month = req.query.month as string;
       
@@ -192,7 +192,7 @@ export async function registerRoutes(
 
   app.get("/api/upcoming-slots", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const slots = await storage.getUpcomingSlots(userId);
       res.json(slots);
     } catch (error) {
@@ -203,7 +203,7 @@ export async function registerRoutes(
 
   app.post("/api/attendance-slots", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validatedData = insertAttendanceSlotSchema.parse(req.body);
       
       const isAdmin = await isUserAdminOfCommittee(userId, validatedData.committeeId);
@@ -224,7 +224,7 @@ export async function registerRoutes(
 
   app.get("/api/my-attendances", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const attendances = await storage.getUserAttendances(userId);
       res.json(attendances);
     } catch (error) {
@@ -235,7 +235,7 @@ export async function registerRoutes(
 
   app.post("/api/attendances", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { slotId } = req.body;
       
       if (!slotId) {
@@ -293,7 +293,7 @@ export async function registerRoutes(
 
   app.delete("/api/attendances/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const attendance = await storage.getAttendanceById(req.params.id);
       
       if (!attendance) {

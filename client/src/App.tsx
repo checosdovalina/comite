@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,6 +11,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import LandingPage from "@/pages/landing";
+import LoginPage from "@/pages/login";
+import RegisterPage from "@/pages/register";
 import DashboardPage from "@/pages/dashboard";
 import CommitteesPage from "@/pages/committees";
 import CommitteeDetailPage from "@/pages/committee-detail";
@@ -39,6 +41,7 @@ function AuthenticatedRouter() {
           <main className="flex-1 overflow-auto p-6">
             <Switch>
               <Route path="/" component={DashboardPage} />
+              <Route path="/dashboard" component={DashboardPage} />
               <Route path="/committees" component={CommitteesPage} />
               <Route path="/committees/:id" component={CommitteeDetailPage} />
               <Route path="/calendar" component={CalendarPage} />
@@ -57,6 +60,7 @@ function AuthenticatedRouter() {
 
 function AppContent() {
   const { user, isLoading } = useAuth();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -71,7 +75,13 @@ function AppContent() {
   }
 
   if (!user) {
-    return <LandingPage />;
+    return (
+      <Switch>
+        <Route path="/login" component={LoginPage} />
+        <Route path="/register" component={RegisterPage} />
+        <Route component={LandingPage} />
+      </Switch>
+    );
   }
 
   return <AuthenticatedRouter />;
