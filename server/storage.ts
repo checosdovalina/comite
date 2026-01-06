@@ -18,6 +18,7 @@ import { eq, and, gte, lte, desc } from "drizzle-orm";
 
 export interface IStorage {
   getCommittees(): Promise<Committee[]>;
+  getAllCommittees(): Promise<Committee[]>;
   getCommittee(id: string): Promise<Committee | undefined>;
   createCommittee(data: InsertCommittee): Promise<Committee>;
   updateCommittee(id: string, data: Partial<InsertCommittee>): Promise<Committee | undefined>;
@@ -46,6 +47,10 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getCommittees(): Promise<Committee[]> {
+    return await db.select().from(committees).where(eq(committees.isActive, true));
+  }
+
+  async getAllCommittees(): Promise<Committee[]> {
     return await db.select().from(committees).where(eq(committees.isActive, true));
   }
 

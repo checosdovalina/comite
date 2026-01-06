@@ -41,13 +41,22 @@ async function findUserById(id: string) {
   return user;
 }
 
+async function countUsers(): Promise<number> {
+  const result = await db.select().from(users);
+  return result.length;
+}
+
 async function createUser(email: string, password: string, firstName: string, lastName: string) {
   const passwordHash = await hashPassword(password);
+  const userCount = await countUsers();
+  const isSuperAdmin = userCount === 0;
+  
   const [user] = await db.insert(users).values({
     email: email.toLowerCase(),
     passwordHash,
     firstName,
     lastName,
+    isSuperAdmin,
   }).returning();
   return user;
 }

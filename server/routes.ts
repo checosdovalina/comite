@@ -21,6 +21,10 @@ async function isUserAdminOfCommittee(userId: string, committeeId: string): Prom
   return membership?.role === 'admin';
 }
 
+function isSuperAdmin(req: any): boolean {
+  return req.user?.isSuperAdmin === true;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -60,11 +64,24 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/available-committees", isAuthenticated, async (req: any, res) => {
+    try {
+      const committees = await storage.getAllCommittees();
+      res.json(committees);
+    } catch (error) {
+      console.error("Error fetching available committees:", error);
+      res.status(500).json({ message: "Failed to fetch committees" });
+    }
+  });
+
   app.post("/api/committees", isAuthenticated, async (req: any, res) => {
     try {
+      if (!isSuperAdmin(req)) {
+        return res.status(403).json({ message: "Solo el superadmin puede crear comités" });
+      }
+      
       const userId = req.user.id;
       const validatedData = insertCommitteeSchema.parse(req.body);
-      
       const committee = await storage.createCommittee(validatedData);
       
       await storage.createCommitteeMember({
@@ -81,6 +98,35 @@ export async function registerRoutes(
       }
       console.error("Error creating committee:", error);
       res.status(500).json({ message: "Failed to create committee" });
+    }
+  });
+
+  app.post("/api/committees/:id/join", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const committeeId = req.params.id;
+      
+      const committee = await storage.getCommittee(committeeId);
+      if (!committee) {
+        return res.status(404).json({ message: "Comité no encontrado" });
+      }
+      
+      const isMember = await isUserMemberOfCommittee(userId, committeeId);
+      if (isMember) {
+        return res.status(400).json({ message: "Ya eres miembro de este comité" });
+      }
+      
+      const member = await storage.createCommitteeMember({
+        committeeId,
+        userId,
+        role: "member",
+        isActive: true,
+      });
+      
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error joining committee:", error);
+      res.status(500).json({ message: "Error al unirse al comité" });
     }
   });
 
