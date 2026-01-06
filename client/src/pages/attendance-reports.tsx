@@ -29,7 +29,15 @@ import {
   FileSpreadsheet,
   Sun,
   Sunset,
+  FileText,
+  Table2,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   format,
   startOfWeek,
@@ -136,6 +144,121 @@ export default function AttendanceReportsPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDownloadExcel = () => {
+    if (!report || report.length === 0) return;
+
+    const selectedCommitteeData = adminCommittees.find(
+      (c) => c.id === selectedCommittee
+    );
+
+    const headers = ["Fecha", "Turno", "Nombre", "Email", "Registrado"];
+    const rows = report.map((item) => [
+      format(parseISO(item.date), "dd/MM/yyyy"),
+      shiftLabels[item.shift] || item.shift,
+      item.userName,
+      item.userEmail,
+      format(parseISO(item.registeredAt), "dd/MM/yyyy HH:mm"),
+    ]);
+
+    const excelContent = [headers.join("\t"), ...rows.map((r) => r.join("\t"))].join("\n");
+
+    const blob = new Blob([excelContent], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `asistencias_${selectedCommitteeData?.name || "comite"}_${format(
+        weekStart,
+        "yyyy-MM-dd"
+      )}_${format(weekEnd, "yyyy-MM-dd")}.xls`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const escapeHtml = (text: string): string => {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  const handleDownloadPDF = () => {
+    if (!report || report.length === 0) return;
+
+    const selectedCommitteeData = adminCommittees.find(
+      (c) => c.id === selectedCommittee
+    );
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const committeeName = escapeHtml(selectedCommitteeData?.name || "Comite");
+    const weekRange = `${format(weekStart, "d MMM", { locale: es })} - ${format(weekEnd, "d MMM yyyy", { locale: es })}`;
+
+    const tableRows = report.map((item) => `
+      <tr>
+        <td>${format(parseISO(item.date), "dd/MM/yyyy")}</td>
+        <td>${escapeHtml(shiftLabels[item.shift] || item.shift)}</td>
+        <td>${escapeHtml(item.userName)}</td>
+        <td>${escapeHtml(item.userEmail)}</td>
+        <td>${format(parseISO(item.registeredAt), "dd/MM/yyyy HH:mm")}</td>
+      </tr>
+    `).join("");
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Reporte de Asistencias - ${committeeName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { text-align: center; color: #333; }
+            h2 { color: #666; margin-top: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #4f46e5; color: white; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .header-info { text-align: center; color: #666; margin-bottom: 20px; }
+            @media print {
+              body { margin: 0; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Reporte de Asistencias</h1>
+          <div class="header-info">
+            <strong>${committeeName}</strong><br/>
+            Semana: ${weekRange}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Turno</th>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Registrado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   const groupedByDate = useMemo(() => {
@@ -275,10 +398,28 @@ export default function AttendanceReportsPage() {
               </CardDescription>
             </div>
             {report && report.length > 0 && (
-              <Button onClick={handleDownloadCSV} data-testid="button-download-csv">
-                <Download className="mr-2 h-4 w-4" />
-                Descargar CSV
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button data-testid="button-download">
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleDownloadCSV} data-testid="menu-download-csv">
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Descargar CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadExcel} data-testid="menu-download-excel">
+                    <Table2 className="mr-2 h-4 w-4" />
+                    Descargar Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadPDF} data-testid="menu-download-pdf">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Descargar PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </CardHeader>
           <CardContent>

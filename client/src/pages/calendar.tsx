@@ -57,6 +57,15 @@ interface AttendanceWithDetails extends Attendance {
   committeeName?: string;
 }
 
+interface CalendarAttendance {
+  id: string;
+  date: string;
+  shift: string;
+  userId: string;
+  userName: string;
+  registeredAt: string;
+}
+
 export default function CalendarPage() {
   const search = useSearch();
   const params = new URLSearchParams(search);
@@ -78,6 +87,22 @@ export default function CalendarPage() {
     queryKey: ["/api/my-attendances"],
   });
 
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(monthStart);
+
+  const { data: calendarAttendances } = useQuery<CalendarAttendance[]>({
+    queryKey: ["/api/committees", selectedCommittee, "calendar-attendances", format(monthStart, "yyyy-MM-dd"), format(monthEnd, "yyyy-MM-dd")],
+    queryFn: async () => {
+      if (!selectedCommittee) return [];
+      const response = await fetch(
+        `/api/committees/${selectedCommittee}/calendar-attendances?startDate=${format(monthStart, "yyyy-MM-dd")}&endDate=${format(monthEnd, "yyyy-MM-dd")}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch calendar attendances");
+      return response.json();
+    },
+    enabled: !!selectedCommittee,
+  });
+
   const markAttendanceMutation = useMutation({
     mutationFn: async (data: { committeeId: string; date: string; shift: string }) => {
       const response = await apiRequest("POST", "/api/mark-attendance", data);
@@ -85,6 +110,7 @@ export default function CalendarPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-attendances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/committees", selectedCommittee, "calendar-attendances"] });
       toast({
         title: "Asistencia registrada",
         description: "Tu asistencia ha sido marcada correctamente",
@@ -107,6 +133,7 @@ export default function CalendarPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-attendances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/committees", selectedCommittee, "calendar-attendances"] });
       toast({
         title: "Asistencia cancelada",
         description: "Tu asistencia ha sido cancelada",
@@ -122,8 +149,6 @@ export default function CalendarPage() {
     },
   });
 
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(monthStart);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
@@ -156,6 +181,21 @@ export default function CalendarPage() {
     return {
       morning: dayAttendances.some((a) => a.shift === "morning"),
       afternoon: dayAttendances.some((a) => a.shift === "afternoon"),
+    };
+  };
+
+  const getMembersForDate = (date: Date, shift: string) => {
+    if (!calendarAttendances) return [];
+    const dateStr = format(date, "yyyy-MM-dd");
+    return calendarAttendances.filter((a) => a.date === dateStr && a.shift === shift);
+  };
+
+  const getMembersForDateBoth = (date: Date) => {
+    if (!calendarAttendances) return { morning: [], afternoon: [] };
+    const dateStr = format(date, "yyyy-MM-dd");
+    return {
+      morning: calendarAttendances.filter((a) => a.date === dateStr && a.shift === "morning"),
+      afternoon: calendarAttendances.filter((a) => a.date === dateStr && a.shift === "afternoon"),
     };
   };
 
@@ -278,13 +318,16 @@ export default function CalendarPage() {
                 {calendarDays.map((day, index) => {
                   const isCurrentMonth = isSameMonth(day, currentDate);
                   const isDayToday = isToday(day);
-                  const attendance = hasAttendanceOnDate(day);
+                  const myAttendance = hasAttendanceOnDate(day);
+                  const members = getMembersForDateBoth(day);
+                  const hasMorningMembers = members.morning.length > 0;
+                  const hasAfternoonMembers = members.afternoon.length > 0;
 
                   return (
                     <div
                       key={index}
                       onClick={() => isCurrentMonth && handleDayClick(day)}
-                      className={`min-h-[80px] rounded-md border p-2 transition-colors ${
+                      className={`min-h-[100px] rounded-md border p-2 transition-colors ${
                         !isCurrentMonth
                           ? "bg-muted/30 text-muted-foreground cursor-not-allowed"
                           : isDayToday
@@ -300,18 +343,22 @@ export default function CalendarPage() {
                       >
                         {format(day, "d")}
                       </div>
-                      {isCurrentMonth && (attendance.morning || attendance.afternoon) && (
+                      {isCurrentMonth && (hasMorningMembers || hasAfternoonMembers) && (
                         <div className="space-y-1">
-                          {attendance.morning && (
-                            <div className="flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded px-1 py-0.5">
-                              <Sun className="h-3 w-3" />
-                              <span>Mañana</span>
+                          {hasMorningMembers && (
+                            <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
+                              <div className="flex items-center gap-1">
+                                <Sun className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{members.morning.length}</span>
+                              </div>
                             </div>
                           )}
-                          {attendance.afternoon && (
-                            <div className="flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded px-1 py-0.5">
-                              <Sunset className="h-3 w-3" />
-                              <span>Tarde</span>
+                          {hasAfternoonMembers && (
+                            <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.afternoon ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"}`}>
+                              <div className="flex items-center gap-1">
+                                <Sunset className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{members.afternoon.length}</span>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -369,6 +416,24 @@ export default function CalendarPage() {
                   </Button>
                 </div>
               </div>
+
+              {/* Show who is attending this shift */}
+              {getMembersForDate(selectedDate, selectedShift).length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Miembros registrados para este turno</label>
+                  <div className="p-3 bg-muted/50 rounded-md space-y-1 max-h-32 overflow-y-auto">
+                    {getMembersForDate(selectedDate, selectedShift).map((member) => (
+                      <div
+                        key={member.id}
+                        className={`text-sm flex items-center gap-2 ${member.userId === user?.id ? "font-medium text-primary" : ""}`}
+                      >
+                        <span>{member.userName}</span>
+                        {member.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {getAttendanceForDate(selectedDate, selectedShift) ? (
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-md">

@@ -324,6 +324,44 @@ export async function registerRoutes(
     }
   });
 
+  // Get all attendances for a committee (for calendar display)
+  app.get("/api/committees/:id/calendar-attendances", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const committeeId = req.params.id;
+      const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Start and end date are required" });
+      }
+      
+      const isMember = await isUserMemberOfCommittee(userId, committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this committee" });
+      }
+      
+      const slots = await storage.getAttendanceSlots(committeeId, startDate, endDate);
+      
+      const calendarData = slots.flatMap((slot) => 
+        (slot.attendances || [])
+          .filter((a) => a.status === "confirmed")
+          .map((a) => ({
+            id: a.id,
+            date: slot.date,
+            shift: slot.shift,
+            userId: a.userId,
+            userName: a.user ? `${a.user.firstName} ${a.user.lastName}` : "Usuario",
+            registeredAt: a.registeredAt,
+          }))
+      );
+      
+      res.json(calendarData);
+    } catch (error) {
+      console.error("Error fetching calendar attendances:", error);
+      res.status(500).json({ message: "Failed to fetch calendar attendances" });
+    }
+  });
+
   app.post("/api/attendance-slots", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -418,6 +456,73 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error creating attendance:", error);
       res.status(500).json({ message: "Failed to create attendance" });
+    }
+  });
+
+  app.patch("/api/attendances/:id/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const attendance = await storage.getAttendanceById(req.params.id);
+      
+      if (!attendance) {
+        return res.status(404).json({ message: "Attendance not found" });
+      }
+      
+      if (attendance.userId !== userId) {
+        return res.status(403).json({ message: "You can only confirm your own attendance" });
+      }
+      
+      if (attendance.status !== "confirmed") {
+        return res.status(400).json({ message: "Only scheduled attendances can be confirmed" });
+      }
+      
+      const slot = await storage.getAttendanceSlot(attendance.slotId);
+      if (!slot) {
+        return res.status(404).json({ message: "Slot not found" });
+      }
+      
+      const committee = await storage.getCommittee(slot.committeeId);
+      if (!committee) {
+        return res.status(404).json({ message: "Committee not found" });
+      }
+      
+      const today = new Date().toISOString().split("T")[0];
+      if (slot.date !== today) {
+        return res.status(400).json({ message: "Solo puedes confirmar asistencia el día programado" });
+      }
+      
+      const now = new Date();
+      const currentHours = now.getHours();
+      const currentMinutes = now.getMinutes();
+      const currentTime = currentHours * 60 + currentMinutes;
+      
+      let startTime: number, endTime: number;
+      if (slot.shift === "morning") {
+        const [startH, startM] = (committee.morningStart || "09:00").split(":").map(Number);
+        const [endH, endM] = (committee.morningEnd || "13:00").split(":").map(Number);
+        startTime = startH * 60 + startM;
+        endTime = endH * 60 + endM;
+      } else {
+        const [startH, startM] = (committee.afternoonStart || "14:00").split(":").map(Number);
+        const [endH, endM] = (committee.afternoonEnd || "18:00").split(":").map(Number);
+        startTime = startH * 60 + startM;
+        endTime = endH * 60 + endM;
+      }
+      
+      if (currentTime < startTime || currentTime > endTime) {
+        const shiftName = slot.shift === "morning" ? "mañana" : "tarde";
+        const start = slot.shift === "morning" ? committee.morningStart : committee.afternoonStart;
+        const end = slot.shift === "morning" ? committee.morningEnd : committee.afternoonEnd;
+        return res.status(400).json({ 
+          message: `Solo puedes confirmar durante el turno de ${shiftName} (${start} - ${end})` 
+        });
+      }
+      
+      const updated = await storage.updateAttendanceStatus(req.params.id, "attended");
+      res.json(updated);
+    } catch (error) {
+      console.error("Error confirming attendance:", error);
+      res.status(500).json({ message: "Failed to confirm attendance" });
     }
   });
 

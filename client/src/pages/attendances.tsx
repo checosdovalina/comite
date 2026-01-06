@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { format, parseISO, isPast, isFuture } from "date-fns";
+import { format, parseISO, isPast, isFuture, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   CalendarCheck,
@@ -24,6 +24,7 @@ import {
   Calendar,
   History,
   AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import type { Attendance, AttendanceSlot, Committee } from "@shared/schema";
 
@@ -59,6 +60,79 @@ export default function AttendancesPage() {
       });
     },
   });
+
+  const confirmMutation = useMutation({
+    mutationFn: async (attendanceId: string) => {
+      const response = await apiRequest("PATCH", `/api/attendances/${attendanceId}/confirm`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-attendances"] });
+      toast({
+        title: "Asistencia confirmada",
+        description: "Tu asistencia ha sido confirmada correctamente",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo confirmar la asistencia",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const isWithinShiftHours = (attendance: AttendanceWithDetails): boolean => {
+    if (!attendance.slot?.date || !attendance.slot?.committee) return false;
+    
+    const slotDate = parseISO(attendance.slot.date);
+    if (!isToday(slotDate)) return false;
+    
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTime = currentHours * 60 + currentMinutes;
+    
+    const committee = attendance.slot.committee;
+    let startTime: number, endTime: number;
+    
+    if (attendance.slot.shift === "morning") {
+      const [startH, startM] = (committee.morningStart || "09:00").split(":").map(Number);
+      const [endH, endM] = (committee.morningEnd || "13:00").split(":").map(Number);
+      startTime = startH * 60 + startM;
+      endTime = endH * 60 + endM;
+    } else {
+      const [startH, startM] = (committee.afternoonStart || "14:00").split(":").map(Number);
+      const [endH, endM] = (committee.afternoonEnd || "18:00").split(":").map(Number);
+      startTime = startH * 60 + startM;
+      endTime = endH * 60 + endM;
+    }
+    
+    return currentTime >= startTime && currentTime <= endTime;
+  };
+
+  const getConfirmButtonState = (attendance: AttendanceWithDetails): { enabled: boolean; reason: string } => {
+    if (!attendance.slot?.date) return { enabled: false, reason: "Sin fecha" };
+    
+    const slotDate = parseISO(attendance.slot.date);
+    
+    if (!isToday(slotDate)) {
+      if (isFuture(slotDate)) {
+        return { enabled: false, reason: "Disponible el día de la asistencia" };
+      }
+      return { enabled: false, reason: "Fecha pasada" };
+    }
+    
+    if (!isWithinShiftHours(attendance)) {
+      const committee = attendance.slot.committee;
+      if (attendance.slot.shift === "morning") {
+        return { enabled: false, reason: `Disponible ${committee?.morningStart} - ${committee?.morningEnd}` };
+      }
+      return { enabled: false, reason: `Disponible ${committee?.afternoonStart} - ${committee?.afternoonEnd}` };
+    }
+    
+    return { enabled: true, reason: "" };
+  };
 
   const shiftLabels: Record<string, string> = {
     morning: "Mañana",
@@ -158,16 +232,45 @@ export default function AttendancesPage() {
               </TableCell>
               {showCancel && (
                 <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => cancelMutation.mutate(attendance.id)}
-                    disabled={cancelMutation.isPending}
-                    data-testid={`button-cancel-${attendance.id}`}
-                  >
-                    <X className="mr-1 h-3 w-3" />
-                    Cancelar
-                  </Button>
+                  <div className="flex items-center justify-end gap-2 flex-wrap">
+                    {attendance.status === "confirmed" && (
+                      <>
+                        {(() => {
+                          const confirmState = getConfirmButtonState(attendance);
+                          return (
+                            <div className="flex flex-col items-end gap-1">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => confirmMutation.mutate(attendance.id)}
+                                disabled={!confirmState.enabled || confirmMutation.isPending}
+                                data-testid={`button-confirm-${attendance.id}`}
+                              >
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                {confirmMutation.isPending ? "Confirmando..." : "Confirmar"}
+                              </Button>
+                              {!confirmState.enabled && (
+                                <span className="text-xs text-muted-foreground">{confirmState.reason}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    )}
+                    {attendance.status === "attended" && (
+                      <Badge variant="default">Asistencia confirmada</Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => cancelMutation.mutate(attendance.id)}
+                      disabled={cancelMutation.isPending}
+                      data-testid={`button-cancel-${attendance.id}`}
+                    >
+                      <X className="mr-1 h-3 w-3" />
+                      Cancelar
+                    </Button>
+                  </div>
                 </TableCell>
               )}
             </TableRow>
