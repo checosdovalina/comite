@@ -435,19 +435,19 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-3">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">
+          <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
             Registrar Turno
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Selecciona una fecha para registrar tu turno
           </p>
         </div>
 
         <Select value={selectedCommittee} onValueChange={setSelectedCommittee}>
-          <SelectTrigger className="w-[280px]" data-testid="select-committee">
+          <SelectTrigger className="w-full sm:w-[280px]" data-testid="select-committee">
             <SelectValue placeholder="Seleccionar comité" />
           </SelectTrigger>
           <SelectContent>
@@ -461,36 +461,40 @@ export default function CalendarPage() {
       </div>
 
       <Card>
-        <CardHeader className="pb-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+        <CardHeader className="p-3 sm:p-6 pb-2">
+          <div className="flex flex-col gap-3">
+            {/* Navigation Row */}
+            <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={navigatePrevious}
+                className="h-10 w-10 touch-manipulation"
                 data-testid="button-nav-prev"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-5 w-5" />
               </Button>
-              <CardTitle className="text-lg capitalize min-w-[180px] text-center">
+              <CardTitle className="text-base sm:text-lg capitalize text-center flex-1 px-2">
                 {getViewTitle()}
               </CardTitle>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={navigateNext}
+                className="h-10 w-10 touch-manipulation"
                 data-testid="button-nav-next"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex border rounded-md">
+            {/* View Mode Selector Row */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex border rounded-md flex-1 sm:flex-initial">
                 <Button
                   variant={viewMode === "day" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("day")}
-                  className="rounded-r-none"
+                  className="rounded-r-none flex-1 sm:flex-initial touch-manipulation"
                   data-testid="button-view-day"
                 >
                   Día
@@ -499,7 +503,7 @@ export default function CalendarPage() {
                   variant={viewMode === "week" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("week")}
-                  className="rounded-none border-x"
+                  className="rounded-none border-x flex-1 sm:flex-initial touch-manipulation"
                   data-testid="button-view-week"
                 >
                   Semana
@@ -508,40 +512,43 @@ export default function CalendarPage() {
                   variant={viewMode === "month" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("month")}
-                  className="rounded-l-none"
+                  className="rounded-l-none flex-1 sm:flex-initial touch-manipulation"
                   data-testid="button-view-month"
                 >
                   Mes
                 </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentDate(new Date())}
-                data-testid="button-today"
-              >
-                Hoy
-              </Button>
-              {selectedCommittee && calendarAttendances && calendarAttendances.length > 0 && viewMode === "month" && (
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleDownloadCalendarPDF}
-                  data-testid="button-download-calendar-pdf"
+                  onClick={() => setCurrentDate(new Date())}
+                  className="touch-manipulation"
+                  data-testid="button-today"
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  PDF
+                  Hoy
                 </Button>
-              )}
+                {selectedCommittee && calendarAttendances && calendarAttendances.length > 0 && viewMode === "month" && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleDownloadCalendarPDF}
+                    className="touch-manipulation"
+                    data-testid="button-download-calendar-pdf"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
           {selectedCommitteeData && (
-            <CardDescription>
+            <CardDescription className="mt-2">
               {selectedCommitteeData.name}
             </CardDescription>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-2 sm:p-6">
           {!selectedCommittee ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
@@ -559,64 +566,64 @@ export default function CalendarPage() {
             <div className="space-y-4">
               <div
                 onClick={() => handleDayClick(currentDate)}
-                className={`rounded-md border p-4 cursor-pointer transition-colors ${
-                  isToday(currentDate) ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+                className={`rounded-md border p-3 sm:p-4 cursor-pointer transition-colors touch-manipulation ${
+                  isToday(currentDate) ? "border-primary bg-primary/5" : "hover:bg-muted/50 active:bg-muted/70"
                 }`}
                 data-testid={`calendar-day-${format(currentDate, "yyyy-MM-dd")}`}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`text-lg font-semibold ${isToday(currentDate) ? "text-primary" : ""}`}>
+                <div className="flex items-center justify-between mb-3 sm:mb-4 flex-wrap gap-2">
+                  <div className={`text-base sm:text-lg font-semibold ${isToday(currentDate) ? "text-primary" : ""}`}>
                     {format(currentDate, "EEEE, d 'de' MMMM", { locale: es })}
                   </div>
                   {isToday(currentDate) && <Badge>Hoy</Badge>}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
                   {/* Morning Section */}
-                  <div className={`p-4 rounded-md ${hasAttendanceOnDate(currentDate).morning ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Sun className="h-5 w-5" />
-                      <span className="font-semibold">Turno Mañana</span>
+                  <div className={`p-3 sm:p-4 rounded-md ${hasAttendanceOnDate(currentDate).morning ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+                    <div className="flex items-center gap-2 mb-2 sm:mb-3 flex-wrap">
+                      <Sun className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="font-semibold text-sm sm:text-base">Turno Mañana</span>
                       {selectedCommitteeData && (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs sm:text-sm text-muted-foreground">
                           ({selectedCommitteeData.morningStart} - {selectedCommitteeData.morningEnd})
                         </span>
                       )}
                     </div>
                     {getMembersForDate(currentDate, "morning").length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="space-y-1 sm:space-y-2">
                         {getMembersForDate(currentDate, "morning").map((m) => (
-                          <div key={m.id} className="flex items-center gap-2 text-sm">
+                          <div key={m.id} className="flex items-center gap-2 text-xs sm:text-sm">
                             <span>{m.userName}</span>
                             {m.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Sin registros</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Sin registros</p>
                     )}
                   </div>
                   {/* Afternoon Section */}
-                  <div className={`p-4 rounded-md ${hasAttendanceOnDate(currentDate).afternoon ? "bg-green-100 dark:bg-green-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Sunset className="h-5 w-5" />
-                      <span className="font-semibold">Turno Tarde</span>
+                  <div className={`p-3 sm:p-4 rounded-md ${hasAttendanceOnDate(currentDate).afternoon ? "bg-green-100 dark:bg-green-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
+                    <div className="flex items-center gap-2 mb-2 sm:mb-3 flex-wrap">
+                      <Sunset className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="font-semibold text-sm sm:text-base">Turno Tarde</span>
                       {selectedCommitteeData && (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs sm:text-sm text-muted-foreground">
                           ({selectedCommitteeData.afternoonStart} - {selectedCommitteeData.afternoonEnd})
                         </span>
                       )}
                     </div>
                     {getMembersForDate(currentDate, "afternoon").length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="space-y-1 sm:space-y-2">
                         {getMembersForDate(currentDate, "afternoon").map((m) => (
-                          <div key={m.id} className="flex items-center gap-2 text-sm">
+                          <div key={m.id} className="flex items-center gap-2 text-xs sm:text-sm">
                             <span>{m.userName}</span>
                             {m.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Sin registros</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Sin registros</p>
                     )}
                   </div>
                 </div>
@@ -625,17 +632,18 @@ export default function CalendarPage() {
           ) : viewMode === "week" ? (
             /* Week View */
             <>
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {weekDays.map((day) => (
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
+                {weekDays.map((day, idx) => (
                   <div
                     key={day}
-                    className="p-2 text-center text-sm font-medium text-muted-foreground"
+                    className="p-1 sm:p-2 text-center text-[10px] sm:text-sm font-medium text-muted-foreground"
                   >
-                    {day}
+                    <span className="hidden sm:inline">{day}</span>
+                    <span className="sm:hidden">{day.charAt(0)}</span>
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                 {weekDaysArray.map((day, index) => {
                   const isDayToday = isToday(day);
                   const myAttendance = hasAttendanceOnDate(day);
@@ -647,49 +655,57 @@ export default function CalendarPage() {
                     <div
                       key={index}
                       onClick={() => handleDayClick(day)}
-                      className={`min-h-[140px] rounded-md border p-2 transition-colors cursor-pointer ${
+                      className={`min-h-[80px] sm:min-h-[140px] rounded-md border p-1 sm:p-2 transition-colors cursor-pointer touch-manipulation ${
                         isDayToday
-                          ? "border-primary bg-primary/5 hover:bg-primary/10"
-                          : "hover:bg-muted/50"
+                          ? "border-primary bg-primary/5 hover:bg-primary/10 active:bg-primary/20"
+                          : "hover:bg-muted/50 active:bg-muted/70"
                       }`}
                       data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
                     >
                       <div
-                        className={`text-right text-sm mb-1 ${
+                        className={`text-right text-xs sm:text-sm mb-0.5 sm:mb-1 ${
                           isDayToday ? "font-bold text-primary" : ""
                         }`}
                       >
                         {format(day, "d")}
                       </div>
                       {(hasMorningMembers || hasAfternoonMembers) && (
-                        <div className="space-y-1">
+                        <div className="space-y-0.5 sm:space-y-1">
                           {hasMorningMembers && (
-                            <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <Sun className="h-3 w-3 flex-shrink-0" />
-                                <span className="font-medium">Mañana</span>
+                            <div className={`text-[9px] sm:text-xs rounded px-0.5 sm:px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
+                              <div className="flex items-center gap-0.5 sm:gap-1 mb-0.5">
+                                <Sun className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                <span className="font-medium hidden sm:inline">Mañana</span>
+                                <span className="font-medium sm:hidden">{members.morning.length}</span>
                               </div>
-                              <div className="space-y-0.5 pl-4">
-                                {members.morning.map((m) => (
-                                  <div key={m.id} className="truncate text-[10px]">
+                              <div className="space-y-0.5 pl-3 sm:pl-4 hidden sm:block">
+                                {members.morning.slice(0, 2).map((m) => (
+                                  <div key={m.id} className="truncate text-[9px] sm:text-[10px]">
                                     {m.userName}
                                   </div>
                                 ))}
+                                {members.morning.length > 2 && (
+                                  <div className="text-[9px] sm:text-[10px] opacity-70">+{members.morning.length - 2}</div>
+                                )}
                               </div>
                             </div>
                           )}
                           {hasAfternoonMembers && (
-                            <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.afternoon ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"}`}>
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <Sunset className="h-3 w-3 flex-shrink-0" />
-                                <span className="font-medium">Tarde</span>
+                            <div className={`text-[9px] sm:text-xs rounded px-0.5 sm:px-1 py-0.5 ${myAttendance.afternoon ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"}`}>
+                              <div className="flex items-center gap-0.5 sm:gap-1 mb-0.5">
+                                <Sunset className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                <span className="font-medium hidden sm:inline">Tarde</span>
+                                <span className="font-medium sm:hidden">{members.afternoon.length}</span>
                               </div>
-                              <div className="space-y-0.5 pl-4">
-                                {members.afternoon.map((m) => (
-                                  <div key={m.id} className="truncate text-[10px]">
+                              <div className="space-y-0.5 pl-3 sm:pl-4 hidden sm:block">
+                                {members.afternoon.slice(0, 2).map((m) => (
+                                  <div key={m.id} className="truncate text-[9px] sm:text-[10px]">
                                     {m.userName}
                                   </div>
                                 ))}
+                                {members.afternoon.length > 2 && (
+                                  <div className="text-[9px] sm:text-[10px] opacity-70">+{members.afternoon.length - 2}</div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -703,17 +719,18 @@ export default function CalendarPage() {
           ) : (
             /* Month View */
             <>
-              <div className="grid grid-cols-7 gap-1 mb-2">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
                 {weekDays.map((day) => (
                   <div
                     key={day}
-                    className="p-2 text-center text-sm font-medium text-muted-foreground"
+                    className="p-1 sm:p-2 text-center text-[10px] sm:text-sm font-medium text-muted-foreground"
                   >
-                    {day}
+                    <span className="hidden sm:inline">{day}</span>
+                    <span className="sm:hidden">{day.charAt(0)}</span>
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                 {calendarDays.map((day, index) => {
                   const isCurrentMonth = isSameMonth(day, currentDate);
                   const isDayToday = isToday(day);
@@ -726,56 +743,58 @@ export default function CalendarPage() {
                     <div
                       key={index}
                       onClick={() => isCurrentMonth && handleDayClick(day)}
-                      className={`min-h-[100px] rounded-md border p-2 transition-colors ${
+                      className={`min-h-[60px] sm:min-h-[100px] rounded-md border p-1 sm:p-2 transition-colors touch-manipulation ${
                         !isCurrentMonth
                           ? "bg-muted/30 text-muted-foreground cursor-not-allowed"
                           : isDayToday
-                          ? "border-primary bg-primary/5 cursor-pointer hover:bg-primary/10"
-                          : "cursor-pointer hover:bg-muted/50"
+                          ? "border-primary bg-primary/5 cursor-pointer hover:bg-primary/10 active:bg-primary/20"
+                          : "cursor-pointer hover:bg-muted/50 active:bg-muted/70"
                       }`}
                       data-testid={`calendar-day-${format(day, "yyyy-MM-dd")}`}
                     >
                       <div
-                        className={`text-right text-sm mb-1 ${
+                        className={`text-right text-xs sm:text-sm mb-0.5 sm:mb-1 ${
                           isDayToday ? "font-bold text-primary" : ""
                         }`}
                       >
                         {format(day, "d")}
                       </div>
                       {isCurrentMonth && (hasMorningMembers || hasAfternoonMembers) && (
-                        <div className="space-y-1">
+                        <div className="space-y-0.5 sm:space-y-1">
                           {hasMorningMembers && (
-                            <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <Sun className="h-3 w-3 flex-shrink-0" />
-                                <span className="font-medium">Mañana</span>
+                            <div className={`text-[9px] sm:text-xs rounded px-0.5 sm:px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
+                              <div className="flex items-center gap-0.5 sm:gap-1">
+                                <Sun className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                <span className="font-medium sm:hidden">{members.morning.length}</span>
+                                <span className="font-medium hidden sm:inline">Mañana</span>
                               </div>
-                              <div className="space-y-0.5 pl-4">
-                                {members.morning.slice(0, 3).map((m) => (
-                                  <div key={m.id} className="truncate text-[10px]">
+                              <div className="space-y-0.5 pl-3 sm:pl-4 hidden sm:block">
+                                {members.morning.slice(0, 2).map((m) => (
+                                  <div key={m.id} className="truncate text-[9px] sm:text-[10px]">
                                     {m.userName}
                                   </div>
                                 ))}
-                                {members.morning.length > 3 && (
-                                  <div className="text-[10px] opacity-70">+{members.morning.length - 3} más</div>
+                                {members.morning.length > 2 && (
+                                  <div className="text-[9px] sm:text-[10px] opacity-70">+{members.morning.length - 2}</div>
                                 )}
                               </div>
                             </div>
                           )}
                           {hasAfternoonMembers && (
-                            <div className={`text-xs rounded px-1 py-0.5 ${myAttendance.afternoon ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"}`}>
-                              <div className="flex items-center gap-1 mb-0.5">
-                                <Sunset className="h-3 w-3 flex-shrink-0" />
-                                <span className="font-medium">Tarde</span>
+                            <div className={`text-[9px] sm:text-xs rounded px-0.5 sm:px-1 py-0.5 ${myAttendance.afternoon ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"}`}>
+                              <div className="flex items-center gap-0.5 sm:gap-1">
+                                <Sunset className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                <span className="font-medium sm:hidden">{members.afternoon.length}</span>
+                                <span className="font-medium hidden sm:inline">Tarde</span>
                               </div>
-                              <div className="space-y-0.5 pl-4">
-                                {members.afternoon.slice(0, 3).map((m) => (
-                                  <div key={m.id} className="truncate text-[10px]">
+                              <div className="space-y-0.5 pl-3 sm:pl-4 hidden sm:block">
+                                {members.afternoon.slice(0, 2).map((m) => (
+                                  <div key={m.id} className="truncate text-[9px] sm:text-[10px]">
                                     {m.userName}
                                   </div>
                                 ))}
-                                {members.afternoon.length > 3 && (
-                                  <div className="text-[10px] opacity-70">+{members.afternoon.length - 3} más</div>
+                                {members.afternoon.length > 2 && (
+                                  <div className="text-[9px] sm:text-[10px] opacity-70">+{members.afternoon.length - 2}</div>
                                 )}
                               </div>
                             </div>
