@@ -7,7 +7,7 @@ export * from "./models/auth";
 
 export const systemRoleEnum = pgEnum("system_role", ["super_admin", "user"]);
 export const shiftEnum = pgEnum("shift", ["morning", "afternoon", "full_day"]);
-export const memberRoleEnum = pgEnum("member_role", ["admin", "president", "secretary", "counselor", "member"]);
+export const leadershipRoleEnum = pgEnum("leadership_role", ["president", "secretary", "counselor", "none"]);
 
 export const committees = pgTable("committees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -34,7 +34,8 @@ export const committeeMembers = pgTable("committee_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   committeeId: varchar("committee_id").notNull().references(() => committees.id, { onDelete: "cascade" }),
   userId: varchar("user_id").notNull(),
-  role: memberRoleEnum("role").notNull().default("member"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  leadershipRole: leadershipRoleEnum("leadership_role").notNull().default("none"),
   isActive: boolean("is_active").notNull().default(true),
   joinedAt: timestamp("joined_at").defaultNow(),
 });
