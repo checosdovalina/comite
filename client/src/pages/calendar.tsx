@@ -32,6 +32,7 @@ import {
   X,
   Sun,
   Sunset,
+  Download,
 } from "lucide-react";
 import {
   format,
@@ -243,6 +244,117 @@ export default function CalendarPage() {
 
   const selectedCommitteeData = committees?.find((c) => c.id === selectedCommittee);
 
+  const escapeHtml = (text: string): string => {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  const handleDownloadCalendarPDF = () => {
+    if (!selectedCommittee || !calendarAttendances) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const committeeName = escapeHtml(selectedCommitteeData?.name || "Comité");
+    const monthName = format(currentDate, "MMMM yyyy", { locale: es });
+
+    // Generate calendar grid HTML
+    const generateDayCell = (day: Date) => {
+      const dateStr = format(day, "yyyy-MM-dd");
+      const isCurrentMonth = isSameMonth(day, currentDate);
+      const morningMembers = calendarAttendances.filter(a => a.date === dateStr && a.shift === "morning");
+      const afternoonMembers = calendarAttendances.filter(a => a.date === dateStr && a.shift === "afternoon");
+
+      if (!isCurrentMonth) {
+        return `<td style="background: #f5f5f5; color: #999; padding: 8px; vertical-align: top; border: 1px solid #ddd;">${format(day, "d")}</td>`;
+      }
+
+      let content = `<div style="font-weight: bold; margin-bottom: 4px;">${format(day, "d")}</div>`;
+      
+      if (morningMembers.length > 0) {
+        content += `<div style="background: #fef3c7; padding: 4px; border-radius: 4px; margin-bottom: 4px; font-size: 11px;">`;
+        content += `<div style="font-weight: 600;">Mañana</div>`;
+        morningMembers.forEach(m => {
+          content += `<div>${escapeHtml(m.userName)}</div>`;
+        });
+        content += `</div>`;
+      }
+      
+      if (afternoonMembers.length > 0) {
+        content += `<div style="background: #dbeafe; padding: 4px; border-radius: 4px; font-size: 11px;">`;
+        content += `<div style="font-weight: 600;">Tarde</div>`;
+        afternoonMembers.forEach(m => {
+          content += `<div>${escapeHtml(m.userName)}</div>`;
+        });
+        content += `</div>`;
+      }
+
+      return `<td style="padding: 8px; vertical-align: top; border: 1px solid #ddd; min-width: 100px;">${content}</td>`;
+    };
+
+    // Build weeks
+    let weeksHtml = "";
+    let currentWeek: Date[] = [];
+    
+    calendarDays.forEach((day, index) => {
+      currentWeek.push(day);
+      if (currentWeek.length === 7) {
+        weeksHtml += `<tr>${currentWeek.map(d => generateDayCell(d)).join("")}</tr>`;
+        currentWeek = [];
+      }
+    });
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Calendario - ${committeeName} - ${monthName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { text-align: center; color: #333; margin-bottom: 5px; }
+            .header-info { text-align: center; color: #666; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background-color: #4f46e5; color: white; padding: 10px; text-align: center; }
+            @media print {
+              body { margin: 0; }
+              @page { size: landscape; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Calendario de Turnos</h1>
+          <div class="header-info">
+            <strong>${committeeName}</strong><br/>
+            ${monthName}
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Lun</th>
+                <th>Mar</th>
+                <th>Mié</th>
+                <th>Jue</th>
+                <th>Vie</th>
+                <th>Sáb</th>
+                <th>Dom</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${weeksHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   if (committeesLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -292,14 +404,27 @@ export default function CalendarPage() {
             <CardTitle className="text-lg capitalize">
               {format(currentDate, "MMMM yyyy", { locale: es })}
             </CardTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-              data-testid="button-next-month"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+                data-testid="button-next-month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              {selectedCommittee && calendarAttendances && calendarAttendances.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadCalendarPDF}
+                  data-testid="button-download-calendar-pdf"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  PDF
+                </Button>
+              )}
+            </div>
           </div>
           {selectedCommitteeData && (
             <CardDescription>
