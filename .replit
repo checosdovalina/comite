@@ -44,5 +44,4 @@ integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_database:1.0.
 [userenv]
 
 [userenv.shared]
-NEON_DATABASE_URL = "postgresql://neondb_owner:npg_KpuxcN9I0ZtP@ep-floral-river-adfvbzwc-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 DATABASE_URL = "postgresql://neondb_owner:npg_KpuxcN9I0ZtP@ep-floral-river-adfvbzwc-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
