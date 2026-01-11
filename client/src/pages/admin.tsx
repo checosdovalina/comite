@@ -35,6 +35,8 @@ import {
   Shield,
   Settings,
   ArrowUpDown,
+  Building2,
+  Star,
 } from "lucide-react";
 import type { Role, Committee } from "@shared/schema";
 
@@ -54,10 +56,25 @@ export default function AdminPage() {
     queryKey: ["/api/roles"],
   });
 
-  const { data: committees } = useQuery<Committee[]>({
+  const { data: committees, isLoading: committeesLoading } = useQuery<Committee[]>({
     queryKey: ["/api/admin/committees"],
-    queryFn: () => fetch("/api/admin/committees").then(r => r.json()),
     enabled: user?.isSuperAdmin,
+  });
+
+  const updateCommitteeMutation = useMutation({
+    mutationFn: ({ id, isGeneral }: { id: string; isGeneral: boolean }) =>
+      apiRequest("PATCH", `/api/admin/committees/${id}`, { isGeneral }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/committees"] });
+      toast({ title: "Comité actualizado", description: "Los cambios se han guardado." });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error?.message || "No se pudo actualizar el comité.", 
+        variant: "destructive" 
+      });
+    },
   });
 
   const createRoleMutation = useMutation({
@@ -254,6 +271,75 @@ export default function AdminPage() {
               <p className="text-sm text-muted-foreground">
                 Crea roles para asignar a los miembros de los comités
               </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            <div>
+              <CardTitle>Comités del Sistema</CardTitle>
+              <CardDescription>
+                Marca un comité como "General" para permitir que sus consejeros agreguen colaboradores
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {committeesLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : committees && committees.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead className="hidden sm:table-cell">Código</TableHead>
+                    <TableHead className="w-[150px]">Comité General</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {committees.map((committee) => (
+                    <TableRow key={committee.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{committee.name}</span>
+                          {committee.isGeneral && (
+                            <Badge className="bg-amber-500 text-white">
+                              <Star className="h-3 w-3 mr-1" />
+                              General
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">
+                        {committee.code || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={committee.isGeneral}
+                          onCheckedChange={(checked) =>
+                            updateCommitteeMutation.mutate({ id: committee.id, isGeneral: checked })
+                          }
+                          disabled={updateCommitteeMutation.isPending}
+                          data-testid={`switch-general-${committee.id}`}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No hay comités registrados</p>
             </div>
           )}
         </CardContent>

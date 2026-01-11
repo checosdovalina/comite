@@ -835,6 +835,51 @@ export async function registerRoutes(
     }
   });
 
+  // Admin Committees Routes (Superadmin only)
+  app.get("/api/admin/committees", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isSuperAdmin(req)) {
+        return res.status(403).json({ message: "Only superadmins can view all committees" });
+      }
+      
+      const allCommittees = await storage.getAllCommittees();
+      res.json(allCommittees);
+    } catch (error) {
+      console.error("Error fetching all committees:", error);
+      res.status(500).json({ message: "Failed to fetch committees" });
+    }
+  });
+
+  app.patch("/api/admin/committees/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isSuperAdmin(req)) {
+        return res.status(403).json({ message: "Only superadmins can update committees" });
+      }
+      
+      const { id } = req.params;
+      const { isGeneral } = req.body;
+      
+      if (isGeneral === true) {
+        const allCommittees = await storage.getAllCommittees();
+        const existingGeneral = allCommittees.find(c => c.isGeneral && c.id !== id);
+        if (existingGeneral) {
+          return res.status(400).json({ 
+            message: "Ya existe un Comité General. Solo puede haber uno." 
+          });
+        }
+      }
+      
+      const committee = await storage.updateCommittee(id, { isGeneral });
+      if (!committee) {
+        return res.status(404).json({ message: "Committee not found" });
+      }
+      res.json(committee);
+    } catch (error) {
+      console.error("Error updating committee:", error);
+      res.status(500).json({ message: "Failed to update committee" });
+    }
+  });
+
   // Roles Routes (Superadmin only)
   app.get("/api/roles", isAuthenticated, async (req: any, res) => {
     try {
