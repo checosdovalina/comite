@@ -1,23 +1,57 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { useTheme } from "@/components/theme-provider";
+import { usePWA } from "@/hooks/use-pwa";
+import { useToast } from "@/hooks/use-toast";
 import {
-  Settings as SettingsIcon,
   Bell,
   Moon,
   Sun,
   Monitor,
   Globe,
   Shield,
+  Smartphone,
+  Download,
+  BellRing,
+  Check,
 } from "lucide-react";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
+  const { isInstallable, isInstalled, promptInstall, notificationPermission, requestNotificationPermission } = usePWA();
+  const { toast } = useToast();
+
+  const [notificationSettings, setNotificationSettings] = useState({
+    emailNotifications: true,
+    shiftReminders: true,
+    calendarChanges: true,
+    activityReminders: true,
+  });
+
+  const handleInstall = async () => {
+    const success = await promptInstall();
+    if (success) {
+      toast({ title: "App instalada", description: "La aplicación se ha instalado correctamente." });
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    const permission = await requestNotificationPermission();
+    if (permission === "granted") {
+      toast({ title: "Notificaciones activadas", description: "Recibirás alertas de tus turnos y actividades." });
+    } else if (permission === "denied") {
+      toast({
+        title: "Notificaciones bloqueadas",
+        description: "Habilita las notificaciones en la configuración de tu navegador.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -31,6 +65,70 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        <Card className={isInstalled ? "border-green-500/30 bg-green-500/5" : isInstallable ? "border-primary/30" : ""}>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5" />
+              <CardTitle>Aplicación Móvil</CardTitle>
+            </div>
+            <CardDescription>
+              Instala la app en tu dispositivo para acceso rápido
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isInstalled ? (
+              <div className="flex items-center gap-3 text-green-600 dark:text-green-400">
+                <Check className="h-5 w-5" />
+                <div>
+                  <p className="font-medium">Aplicación instalada</p>
+                  <p className="text-sm text-muted-foreground">
+                    Ya tienes la app instalada en tu dispositivo
+                  </p>
+                </div>
+              </div>
+            ) : isInstallable ? (
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <Label>Instalar aplicación</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Accede más rápido desde tu pantalla de inicio
+                  </p>
+                </div>
+                <Button onClick={handleInstall} className="touch-manipulation" data-testid="button-install-app">
+                  <Download className="h-4 w-4 mr-2" />
+                  Instalar
+                </Button>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                <p>Abre esta página en Chrome o Safari en tu dispositivo móvil para poder instalar la aplicación.</p>
+              </div>
+            )}
+            <Separator />
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label>Notificaciones push</Label>
+                <p className="text-sm text-muted-foreground">
+                  Recibe alertas en tu dispositivo
+                </p>
+              </div>
+              {notificationPermission === "granted" ? (
+                <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30">
+                  <Check className="h-3 w-3 mr-1" />
+                  Activadas
+                </Badge>
+              ) : notificationPermission === "denied" ? (
+                <Badge variant="destructive">Bloqueadas</Badge>
+              ) : (
+                <Button variant="outline" onClick={handleEnableNotifications} className="touch-manipulation" data-testid="button-enable-push">
+                  <BellRing className="h-4 w-4 mr-2" />
+                  Activar
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -121,6 +219,16 @@ export default function SettingsPage() {
                 </p>
               </div>
               <Switch defaultChecked data-testid="switch-calendar-changes" />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Recordatorios de actividades</Label>
+                <p className="text-sm text-muted-foreground">
+                  Alertas para tus actividades programadas
+                </p>
+              </div>
+              <Switch defaultChecked data-testid="switch-activity-reminders" />
             </div>
           </CardContent>
         </Card>
