@@ -33,6 +33,12 @@ import {
   Sun,
   Sunset,
   Download,
+  Users,
+  MapPin,
+  FileText,
+  GraduationCap,
+  CalendarDays,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   format,
@@ -52,7 +58,7 @@ import {
   parseISO,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import type { Committee, Attendance } from "@shared/schema";
+import type { Committee, Attendance, MemberActivity } from "@shared/schema";
 
 interface AttendanceWithDetails extends Attendance {
   date?: string;
@@ -71,6 +77,19 @@ interface CalendarAttendance {
 }
 
 type ViewMode = "day" | "week" | "month";
+
+interface CalendarActivity extends MemberActivity {
+  userName?: string;
+}
+
+const activityTypeConfig: Record<string, { icon: typeof Users; color: string; label: string }> = {
+  meeting: { icon: Users, color: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300", label: "Reunión" },
+  visit: { icon: MapPin, color: "bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300", label: "Visita" },
+  report: { icon: FileText, color: "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300", label: "Reporte" },
+  training: { icon: GraduationCap, color: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300", label: "Capacitación" },
+  event: { icon: CalendarDays, color: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300", label: "Evento" },
+  other: { icon: MoreHorizontal, color: "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300", label: "Otro" },
+};
 
 export default function CalendarPage() {
   const search = useSearch();
@@ -141,6 +160,19 @@ export default function CalendarPage() {
         `/api/committees/${selectedCommittee}/calendar-attendances?startDate=${format(dateRange.start, "yyyy-MM-dd")}&endDate=${format(dateRange.end, "yyyy-MM-dd")}`
       );
       if (!response.ok) throw new Error("Failed to fetch calendar attendances");
+      return response.json();
+    },
+    enabled: !!selectedCommittee,
+  });
+
+  const { data: calendarActivities } = useQuery<CalendarActivity[]>({
+    queryKey: ["/api/committees", selectedCommittee, "calendar-activities", format(dateRange.start, "yyyy-MM-dd"), format(dateRange.end, "yyyy-MM-dd")],
+    queryFn: async () => {
+      if (!selectedCommittee) return [];
+      const response = await fetch(
+        `/api/committees/${selectedCommittee}/calendar-activities?startDate=${format(dateRange.start, "yyyy-MM-dd")}&endDate=${format(dateRange.end, "yyyy-MM-dd")}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch calendar activities");
       return response.json();
     },
     enabled: !!selectedCommittee,
@@ -286,6 +318,12 @@ export default function CalendarPage() {
       morning: calendarAttendances.filter((a) => a.date === dateStr && a.shift === "morning"),
       afternoon: calendarAttendances.filter((a) => a.date === dateStr && a.shift === "afternoon"),
     };
+  };
+
+  const getActivitiesForDate = (date: Date): CalendarActivity[] => {
+    if (!calendarActivities) return [];
+    const dateStr = format(date, "yyyy-MM-dd");
+    return calendarActivities.filter((a) => a.activityDate === dateStr);
   };
 
   const handleDayClick = (day: Date) => {
@@ -626,6 +664,41 @@ export default function CalendarPage() {
                       <p className="text-xs sm:text-sm text-muted-foreground">Sin registros</p>
                     )}
                   </div>
+                  {/* Activities Section */}
+                  {getActivitiesForDate(currentDate).length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold text-sm sm:text-base mb-2 flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
+                        Actividades del día
+                      </h4>
+                      <div className="space-y-2">
+                        {getActivitiesForDate(currentDate).map((activity) => {
+                          const config = activityTypeConfig[activity.activityType] || activityTypeConfig.other;
+                          const ActivityIcon = config.icon;
+                          return (
+                            <div key={activity.id} className={`p-3 rounded-md ${config.color}`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <ActivityIcon className="h-4 w-4 flex-shrink-0" />
+                                <span className="font-medium text-sm">{activity.title}</span>
+                              </div>
+                              {activity.startTime && (
+                                <div className="text-xs opacity-75 flex items-center gap-1 ml-6">
+                                  <Clock className="h-3 w-3" />
+                                  {activity.startTime}
+                                  {activity.endTime && ` - ${activity.endTime}`}
+                                </div>
+                              )}
+                              {activity.userName && (
+                                <div className="text-xs opacity-75 ml-6 mt-1">
+                                  Por: {activity.userName}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -648,8 +721,10 @@ export default function CalendarPage() {
                   const isDayToday = isToday(day);
                   const myAttendance = hasAttendanceOnDate(day);
                   const members = getMembersForDateBoth(day);
+                  const activities = getActivitiesForDate(day);
                   const hasMorningMembers = members.morning.length > 0;
                   const hasAfternoonMembers = members.afternoon.length > 0;
+                  const hasActivities = activities.length > 0;
 
                   return (
                     <div
@@ -669,7 +744,7 @@ export default function CalendarPage() {
                       >
                         {format(day, "d")}
                       </div>
-                      {(hasMorningMembers || hasAfternoonMembers) && (
+                      {(hasMorningMembers || hasAfternoonMembers || hasActivities) && (
                         <div className="space-y-0.5 sm:space-y-1">
                           {hasMorningMembers && (
                             <div className={`text-[9px] sm:text-xs rounded px-0.5 sm:px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
@@ -708,6 +783,21 @@ export default function CalendarPage() {
                                 )}
                               </div>
                             </div>
+                          )}
+                          {hasActivities && activities.slice(0, 2).map((activity) => {
+                            const config = activityTypeConfig[activity.activityType] || activityTypeConfig.other;
+                            const ActivityIcon = config.icon;
+                            return (
+                              <div key={activity.id} className={`text-[9px] sm:text-xs rounded px-0.5 sm:px-1 py-0.5 ${config.color}`}>
+                                <div className="flex items-center gap-0.5 sm:gap-1">
+                                  <ActivityIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                  <span className="font-medium truncate">{activity.title}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {activities.length > 2 && (
+                            <div className="text-[9px] sm:text-[10px] opacity-70 text-center">+{activities.length - 2} más</div>
                           )}
                         </div>
                       )}
@@ -736,8 +826,10 @@ export default function CalendarPage() {
                   const isDayToday = isToday(day);
                   const myAttendance = hasAttendanceOnDate(day);
                   const members = getMembersForDateBoth(day);
+                  const activities = getActivitiesForDate(day);
                   const hasMorningMembers = members.morning.length > 0;
                   const hasAfternoonMembers = members.afternoon.length > 0;
+                  const hasActivities = activities.length > 0;
 
                   return (
                     <div
@@ -759,7 +851,7 @@ export default function CalendarPage() {
                       >
                         {format(day, "d")}
                       </div>
-                      {isCurrentMonth && (hasMorningMembers || hasAfternoonMembers) && (
+                      {isCurrentMonth && (hasMorningMembers || hasAfternoonMembers || hasActivities) && (
                         <div className="space-y-0.5 sm:space-y-1">
                           {hasMorningMembers && (
                             <div className={`text-[9px] sm:text-xs rounded px-0.5 sm:px-1 py-0.5 ${myAttendance.morning ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"}`}>
@@ -798,6 +890,21 @@ export default function CalendarPage() {
                                 )}
                               </div>
                             </div>
+                          )}
+                          {hasActivities && activities.slice(0, 2).map((activity) => {
+                            const config = activityTypeConfig[activity.activityType] || activityTypeConfig.other;
+                            const ActivityIcon = config.icon;
+                            return (
+                              <div key={activity.id} className={`text-[9px] sm:text-xs rounded px-0.5 sm:px-1 py-0.5 ${config.color}`}>
+                                <div className="flex items-center gap-0.5 sm:gap-1">
+                                  <ActivityIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
+                                  <span className="font-medium truncate">{activity.title}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {activities.length > 2 && (
+                            <div className="text-[9px] sm:text-[10px] opacity-70 text-center">+{activities.length - 2} más</div>
                           )}
                         </div>
                       )}

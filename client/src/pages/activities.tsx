@@ -146,7 +146,12 @@ export default function ActivitiesPage() {
       apiRequest("PATCH", `/api/activities/${id}`, { isVisibleOnCalendar }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/committees"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key.length >= 3 && key[0] === "/api/committees" && key[2] === "calendar-activities";
+        }
+      });
       toast({
         title: variables.isVisibleOnCalendar ? "Visible en calendario" : "Oculto del calendario",
         description: variables.isVisibleOnCalendar
@@ -254,12 +259,12 @@ export default function ActivitiesPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <Select value={selectedCommittee} onValueChange={setSelectedCommittee}>
+          <Select value={selectedCommittee || "all"} onValueChange={(val) => setSelectedCommittee(val === "all" ? "" : val)}>
             <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-committee">
               <SelectValue placeholder="Todos los comités" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos los comités</SelectItem>
+              <SelectItem value="all">Todos los comités</SelectItem>
               {committees?.map((committee) => (
                 <SelectItem key={committee.id} value={committee.id}>
                   {committee.name}
