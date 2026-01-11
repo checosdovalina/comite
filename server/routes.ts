@@ -762,6 +762,26 @@ export async function registerRoutes(
     }
   });
 
+  // Calendar Activities (visible on calendar only)
+  app.get("/api/committees/:committeeId/calendar-activities", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { committeeId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      const isMember = await isUserMemberOfCommittee(userId, committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "Not authorized to view this committee's activities" });
+      }
+      
+      const activities = await storage.getCalendarActivities(committeeId, startDate, endDate);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching calendar activities:", error);
+      res.status(500).json({ message: "Failed to fetch calendar activities" });
+    }
+  });
+
   // Notification Preferences Routes
   app.get("/api/notification-preferences", isAuthenticated, async (req: any, res) => {
     try {

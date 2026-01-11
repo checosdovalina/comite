@@ -55,6 +55,7 @@ export interface IStorage {
   getMemberActivities(committeeId: string, userId?: string, startDate?: string, endDate?: string): Promise<MemberActivity[]>;
   getMemberActivity(id: string): Promise<MemberActivity | undefined>;
   getUserActivities(userId: string, startDate?: string, endDate?: string): Promise<(MemberActivity & { committee?: Committee })[]>;
+  getCalendarActivities(committeeId: string, startDate?: string, endDate?: string): Promise<(MemberActivity & { userName?: string })[]>;
   createMemberActivity(data: InsertMemberActivity): Promise<MemberActivity>;
   updateMemberActivity(id: string, data: Partial<InsertMemberActivity>): Promise<MemberActivity | undefined>;
   deleteMemberActivity(id: string): Promise<boolean>;
@@ -411,6 +412,40 @@ export class DatabaseStorage implements IStorage {
     );
     
     return activitiesWithCommittee;
+  }
+
+  async getCalendarActivities(
+    committeeId: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<(MemberActivity & { userName?: string })[]> {
+    let results = await db
+      .select()
+      .from(memberActivities)
+      .where(
+        and(
+          eq(memberActivities.committeeId, committeeId),
+          eq(memberActivities.isVisibleOnCalendar, true)
+        )
+      )
+      .orderBy(desc(memberActivities.activityDate));
+    
+    if (startDate) {
+      results = results.filter(a => a.activityDate >= startDate);
+    }
+    if (endDate) {
+      results = results.filter(a => a.activityDate <= endDate);
+    }
+    
+    const activitiesWithUser = await Promise.all(
+      results.map(async (activity) => {
+        const [user] = await db.select().from(users).where(eq(users.id, activity.userId));
+        const userName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Usuario';
+        return { ...activity, userName };
+      })
+    );
+    
+    return activitiesWithUser;
   }
 
   async createMemberActivity(data: InsertMemberActivity): Promise<MemberActivity> {
