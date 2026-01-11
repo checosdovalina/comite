@@ -203,14 +203,15 @@ export default function ActivitiesPage() {
       toast({ title: "Error", description: "El título es obligatorio.", variant: "destructive" });
       return;
     }
-    if (!selectedCommittee) {
+    const committeeToUse = selectedCommittee || (committees && committees.length > 0 ? committees[0].id : "");
+    if (!committeeToUse) {
       toast({ title: "Error", description: "Selecciona un comité.", variant: "destructive" });
       return;
     }
 
     const payload = {
       ...formData,
-      committeeId: selectedCommittee,
+      committeeId: committeeToUse,
     };
 
     if (editingActivity) {
@@ -479,7 +480,7 @@ export default function ActivitiesPage() {
             <div className="space-y-2">
               <Label htmlFor="committee">Comité</Label>
               <Select
-                value={selectedCommittee}
+                value={selectedCommittee || (committees && committees.length > 0 ? committees[0].id : undefined)}
                 onValueChange={setSelectedCommittee}
                 disabled={!!editingActivity}
               >
