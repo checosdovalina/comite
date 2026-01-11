@@ -49,7 +49,10 @@ import {
   GraduationCap,
   CalendarDays,
   MoreHorizontal,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Committee, MemberActivity } from "@shared/schema";
 
 const activityTypes = [
@@ -135,6 +138,21 @@ export default function ActivitiesPage() {
       apiRequest("PATCH", `/api/activities/${id}`, { isCompleted }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+    },
+  });
+
+  const toggleVisibilityMutation = useMutation({
+    mutationFn: ({ id, isVisibleOnCalendar }: { id: string; isVisibleOnCalendar: boolean }) =>
+      apiRequest("PATCH", `/api/activities/${id}`, { isVisibleOnCalendar }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/committees"] });
+      toast({
+        title: variables.isVisibleOnCalendar ? "Visible en calendario" : "Oculto del calendario",
+        description: variables.isVisibleOnCalendar
+          ? "Esta actividad ahora aparecerá en el calendario"
+          : "Esta actividad ya no aparecerá en el calendario",
+      });
     },
   });
 
@@ -358,6 +376,35 @@ export default function ActivitiesPage() {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1 flex-shrink-0">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() =>
+                                          toggleVisibilityMutation.mutate({
+                                            id: activity.id,
+                                            isVisibleOnCalendar: !activity.isVisibleOnCalendar,
+                                          })
+                                        }
+                                        className={`h-8 w-8 touch-manipulation ${
+                                          activity.isVisibleOnCalendar ? "text-primary" : "text-muted-foreground"
+                                        }`}
+                                        data-testid={`button-visibility-${activity.id}`}
+                                      >
+                                        {activity.isVisibleOnCalendar ? (
+                                          <Eye className="h-4 w-4" />
+                                        ) : (
+                                          <EyeOff className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {activity.isVisibleOnCalendar
+                                        ? "Visible en calendario (click para ocultar)"
+                                        : "Oculto del calendario (click para mostrar)"}
+                                    </TooltipContent>
+                                  </Tooltip>
                                   <Button
                                     variant="ghost"
                                     size="icon"
