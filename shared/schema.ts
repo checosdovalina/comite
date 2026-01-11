@@ -183,3 +183,5 @@ export type MemberActivity = typeof memberActivities.$inferSelect;
 export type InsertMemberActivity = z.infer<typeof insertMemberActivitySchema>;
 export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type Role = typeof roles.$inferSelect;
+export type InsertRole = z.infer<typeof insertRoleSchema>;
