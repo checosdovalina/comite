@@ -21,6 +21,16 @@ async function isUserAdminOfCommittee(userId: string, committeeId: string): Prom
   return membership?.isAdmin === true;
 }
 
+async function isUserCounselorOfGeneralCommittee(userId: string): Promise<boolean> {
+  const memberships = await storage.getUserMemberships(userId);
+  for (const m of memberships) {
+    if (m.committee?.isGeneral && m.leadershipRole === "counselor") {
+      return true;
+    }
+  }
+  return false;
+}
+
 function isSuperAdmin(req: any): boolean {
   return req.user?.isSuperAdmin === true;
 }
@@ -215,9 +225,10 @@ export async function registerRoutes(
       
       const isAdmin = await isUserAdminOfCommittee(requesterId, committeeId);
       const isSuperAdminUser = isSuperAdmin(req);
+      const isCounselorOfGeneral = await isUserCounselorOfGeneralCommittee(requesterId);
       
-      if (!isAdmin && !isSuperAdminUser) {
-        return res.status(403).json({ message: "Solo administradores pueden agregar miembros" });
+      if (!isAdmin && !isSuperAdminUser && !isCounselorOfGeneral) {
+        return res.status(403).json({ message: "Solo administradores o consejeros del Comité General pueden agregar miembros" });
       }
       
       const userToAdd = await storage.getUserByEmail(userEmail);
