@@ -3,6 +3,8 @@ import {
   committeeMembers,
   attendanceSlots,
   attendances,
+  memberActivities,
+  notificationPreferences,
   type Committee,
   type InsertCommittee,
   type CommitteeMember,
@@ -11,6 +13,10 @@ import {
   type InsertAttendanceSlot,
   type Attendance,
   type InsertAttendance,
+  type MemberActivity,
+  type InsertMemberActivity,
+  type NotificationPreferences,
+  type InsertNotificationPreferences,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -45,6 +51,16 @@ export interface IStorage {
   createAttendance(data: InsertAttendance): Promise<Attendance>;
   deleteAttendance(id: string): Promise<boolean>;
   updateAttendanceStatus(id: string, status: string): Promise<Attendance | undefined>;
+  
+  getMemberActivities(committeeId: string, userId?: string, startDate?: string, endDate?: string): Promise<MemberActivity[]>;
+  getMemberActivity(id: string): Promise<MemberActivity | undefined>;
+  getUserActivities(userId: string, startDate?: string, endDate?: string): Promise<(MemberActivity & { committee?: Committee })[]>;
+  createMemberActivity(data: InsertMemberActivity): Promise<MemberActivity>;
+  updateMemberActivity(id: string, data: Partial<InsertMemberActivity>): Promise<MemberActivity | undefined>;
+  deleteMemberActivity(id: string): Promise<boolean>;
+  
+  getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
+  upsertNotificationPreferences(data: InsertNotificationPreferences): Promise<NotificationPreferences>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -338,6 +354,106 @@ export class DatabaseStorage implements IStorage {
       .where(eq(attendances.id, id))
       .returning();
     return attendance;
+  }
+
+  async getMemberActivities(
+    committeeId: string,
+    userId?: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<MemberActivity[]> {
+    let query = db.select().from(memberActivities).where(eq(memberActivities.committeeId, committeeId));
+    
+    const results = await query.orderBy(desc(memberActivities.activityDate));
+    
+    let filtered = results;
+    if (userId) {
+      filtered = filtered.filter(a => a.userId === userId);
+    }
+    if (startDate) {
+      filtered = filtered.filter(a => a.activityDate >= startDate);
+    }
+    if (endDate) {
+      filtered = filtered.filter(a => a.activityDate <= endDate);
+    }
+    
+    return filtered;
+  }
+
+  async getMemberActivity(id: string): Promise<MemberActivity | undefined> {
+    const [activity] = await db.select().from(memberActivities).where(eq(memberActivities.id, id));
+    return activity;
+  }
+
+  async getUserActivities(
+    userId: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<(MemberActivity & { committee?: Committee })[]> {
+    let results = await db
+      .select()
+      .from(memberActivities)
+      .where(eq(memberActivities.userId, userId))
+      .orderBy(desc(memberActivities.activityDate));
+    
+    if (startDate) {
+      results = results.filter(a => a.activityDate >= startDate);
+    }
+    if (endDate) {
+      results = results.filter(a => a.activityDate <= endDate);
+    }
+    
+    const activitiesWithCommittee = await Promise.all(
+      results.map(async (activity) => {
+        const [committee] = await db.select().from(committees).where(eq(committees.id, activity.committeeId));
+        return { ...activity, committee };
+      })
+    );
+    
+    return activitiesWithCommittee;
+  }
+
+  async createMemberActivity(data: InsertMemberActivity): Promise<MemberActivity> {
+    const [activity] = await db.insert(memberActivities).values(data).returning();
+    return activity;
+  }
+
+  async updateMemberActivity(id: string, data: Partial<InsertMemberActivity>): Promise<MemberActivity | undefined> {
+    const [activity] = await db
+      .update(memberActivities)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(memberActivities.id, id))
+      .returning();
+    return activity;
+  }
+
+  async deleteMemberActivity(id: string): Promise<boolean> {
+    const result = await db.delete(memberActivities).where(eq(memberActivities.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
+    const [prefs] = await db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId));
+    return prefs;
+  }
+
+  async upsertNotificationPreferences(data: InsertNotificationPreferences): Promise<NotificationPreferences> {
+    const existing = await this.getNotificationPreferences(data.userId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(notificationPreferences)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(notificationPreferences.userId, data.userId))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(notificationPreferences).values(data).returning();
+    return created;
   }
 }
 

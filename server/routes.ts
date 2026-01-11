@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
-import { insertCommitteeSchema, insertAttendanceSlotSchema } from "@shared/schema";
+import { insertCommitteeSchema, insertAttendanceSlotSchema, insertMemberActivitySchema, insertNotificationPreferencesSchema } from "@shared/schema";
 import { z } from "zod";
 import {
   startOfMonth,
@@ -661,6 +661,139 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error marking attendance:", error);
       res.status(500).json({ message: "Failed to mark attendance" });
+    }
+  });
+
+  // Member Activities Routes
+  app.get("/api/activities", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { startDate, endDate } = req.query;
+      const activities = await storage.getUserActivities(userId, startDate, endDate);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching user activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  app.get("/api/committees/:committeeId/activities", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { committeeId } = req.params;
+      const { memberId, startDate, endDate } = req.query;
+      
+      const isMember = await isUserMemberOfCommittee(userId, committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "Not authorized to view this committee's activities" });
+      }
+      
+      const activities = await storage.getMemberActivities(committeeId, memberId, startDate, endDate);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching committee activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  app.post("/api/activities", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const data = { ...req.body, userId };
+      
+      const isMember = await isUserMemberOfCommittee(userId, data.committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this committee" });
+      }
+      
+      const validatedData = insertMemberActivitySchema.parse(data);
+      const activity = await storage.createMemberActivity(validatedData);
+      res.status(201).json(activity);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating activity:", error);
+      res.status(500).json({ message: "Failed to create activity" });
+    }
+  });
+
+  app.patch("/api/activities/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      
+      const existingActivity = await storage.getMemberActivity(id);
+      if (!existingActivity) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      if (existingActivity.userId !== userId) {
+        return res.status(403).json({ message: "You can only edit your own activities" });
+      }
+      
+      const activity = await storage.updateMemberActivity(id, req.body);
+      res.json(activity);
+    } catch (error) {
+      console.error("Error updating activity:", error);
+      res.status(500).json({ message: "Failed to update activity" });
+    }
+  });
+
+  app.delete("/api/activities/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      
+      const existingActivity = await storage.getMemberActivity(id);
+      if (!existingActivity) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      if (existingActivity.userId !== userId) {
+        return res.status(403).json({ message: "You can only delete your own activities" });
+      }
+      
+      await storage.deleteMemberActivity(id);
+      res.json({ message: "Activity deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting activity:", error);
+      res.status(500).json({ message: "Failed to delete activity" });
+    }
+  });
+
+  // Notification Preferences Routes
+  app.get("/api/notification-preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const prefs = await storage.getNotificationPreferences(userId);
+      res.json(prefs || {
+        userId,
+        shiftReminders: true,
+        activityReminders: true,
+        reminderMinutesBefore: 60,
+        pushEnabled: false,
+      });
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ message: "Failed to fetch notification preferences" });
+    }
+  });
+
+  app.put("/api/notification-preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const data = { ...req.body, userId };
+      
+      const validatedData = insertNotificationPreferencesSchema.parse(data);
+      const prefs = await storage.upsertNotificationPreferences(validatedData);
+      res.json(prefs);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Failed to update notification preferences" });
     }
   });
 
