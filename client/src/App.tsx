@@ -24,6 +24,7 @@ import ActivitiesPage from "@/pages/activities";
 import ProfilePage from "@/pages/profile";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 
 function AuthenticatedRouter() {
   const sidebarStyle = {
@@ -98,6 +99,7 @@ function App() {
         <TooltipProvider>
           <AppContent />
           <Toaster />
+          <PWAInstallPrompt />
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>
