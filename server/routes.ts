@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
-import { insertCommitteeSchema, insertAttendanceSlotSchema, insertMemberActivitySchema, insertNotificationPreferencesSchema } from "@shared/schema";
+import { insertCommitteeSchema, insertAttendanceSlotSchema, insertMemberActivitySchema, insertNotificationPreferencesSchema, insertRoleSchema } from "@shared/schema";
 import { z } from "zod";
 import {
   startOfMonth,
@@ -814,6 +814,71 @@ export async function registerRoutes(
       }
       console.error("Error updating notification preferences:", error);
       res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+
+  // Roles Routes (Superadmin only)
+  app.get("/api/roles", isAuthenticated, async (req: any, res) => {
+    try {
+      const roles = await storage.getRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      res.status(500).json({ message: "Failed to fetch roles" });
+    }
+  });
+
+  app.post("/api/roles", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isSuperAdmin(req)) {
+        return res.status(403).json({ message: "Only superadmins can create roles" });
+      }
+      
+      const validatedData = insertRoleSchema.parse(req.body);
+      const role = await storage.createRole(validatedData);
+      res.status(201).json(role);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating role:", error);
+      res.status(500).json({ message: "Failed to create role" });
+    }
+  });
+
+  app.patch("/api/roles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isSuperAdmin(req)) {
+        return res.status(403).json({ message: "Only superadmins can update roles" });
+      }
+      
+      const { id } = req.params;
+      const role = await storage.updateRole(id, req.body);
+      if (!role) {
+        return res.status(404).json({ message: "Role not found" });
+      }
+      res.json(role);
+    } catch (error) {
+      console.error("Error updating role:", error);
+      res.status(500).json({ message: "Failed to update role" });
+    }
+  });
+
+  app.delete("/api/roles/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      if (!isSuperAdmin(req)) {
+        return res.status(403).json({ message: "Only superadmins can delete roles" });
+      }
+      
+      const { id } = req.params;
+      const deleted = await storage.deleteRole(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Role not found" });
+      }
+      res.json({ message: "Role deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting role:", error);
+      res.status(500).json({ message: "Failed to delete role" });
     }
   });
 

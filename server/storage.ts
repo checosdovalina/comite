@@ -5,6 +5,7 @@ import {
   attendances,
   memberActivities,
   notificationPreferences,
+  roles,
   type Committee,
   type InsertCommittee,
   type CommitteeMember,
@@ -17,6 +18,8 @@ import {
   type InsertMemberActivity,
   type NotificationPreferences,
   type InsertNotificationPreferences,
+  type Role,
+  type InsertRole,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -62,6 +65,13 @@ export interface IStorage {
   
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   upsertNotificationPreferences(data: InsertNotificationPreferences): Promise<NotificationPreferences>;
+  
+  getRoles(): Promise<Role[]>;
+  getRole(id: string): Promise<Role | undefined>;
+  createRole(data: InsertRole): Promise<Role>;
+  updateRole(id: string, data: Partial<InsertRole>): Promise<Role | undefined>;
+  deleteRole(id: string): Promise<boolean>;
+  getGeneralCommittees(): Promise<Committee[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -489,6 +499,44 @@ export class DatabaseStorage implements IStorage {
     
     const [created] = await db.insert(notificationPreferences).values(data).returning();
     return created;
+  }
+
+  async getRoles(): Promise<Role[]> {
+    return await db.select().from(roles).where(eq(roles.isActive, true));
+  }
+
+  async getRole(id: string): Promise<Role | undefined> {
+    const [role] = await db.select().from(roles).where(eq(roles.id, id));
+    return role;
+  }
+
+  async createRole(data: InsertRole): Promise<Role> {
+    const [role] = await db.insert(roles).values(data).returning();
+    return role;
+  }
+
+  async updateRole(id: string, data: Partial<InsertRole>): Promise<Role | undefined> {
+    const [role] = await db
+      .update(roles)
+      .set(data)
+      .where(eq(roles.id, id))
+      .returning();
+    return role;
+  }
+
+  async deleteRole(id: string): Promise<boolean> {
+    const [role] = await db
+      .update(roles)
+      .set({ isActive: false })
+      .where(eq(roles.id, id))
+      .returning();
+    return !!role;
+  }
+
+  async getGeneralCommittees(): Promise<Committee[]> {
+    return await db.select().from(committees).where(
+      and(eq(committees.isActive, true), eq(committees.isGeneral, true))
+    );
   }
 }
 
