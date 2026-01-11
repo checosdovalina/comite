@@ -16,12 +16,23 @@ export const committees = pgTable("committees", {
   description: text("description"),
   logoUrl: text("logo_url"),
   isActive: boolean("is_active").notNull().default(true),
+  isGeneral: boolean("is_general").notNull().default(false),
   workingDays: text("working_days").array().notNull().default(sql`ARRAY['monday','tuesday','wednesday','thursday','friday']`),
   morningStart: text("morning_start").notNull().default("09:00"),
   morningEnd: text("morning_end").notNull().default("13:00"),
   afternoonStart: text("afternoon_start").notNull().default("14:00"),
   afternoonEnd: text("afternoon_end").notNull().default("18:00"),
   maxPerShift: integer("max_per_shift").notNull().default(2),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const roles = pgTable("roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -36,6 +47,7 @@ export const committeeMembers = pgTable("committee_members", {
   userId: varchar("user_id").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
   leadershipRole: leadershipRoleEnum("leadership_role").notNull().default("none"),
+  roleId: varchar("role_id").references(() => roles.id, { onDelete: "set null" }),
   isActive: boolean("is_active").notNull().default(true),
   joinedAt: timestamp("joined_at").defaultNow(),
 });
@@ -122,6 +134,11 @@ export const notificationPreferences = pgTable("notification_preferences", {
 });
 
 export const insertCommitteeSchema = createInsertSchema(committees).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRoleSchema = createInsertSchema(roles).omit({
   id: true,
   createdAt: true,
 });
