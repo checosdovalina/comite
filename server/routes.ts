@@ -248,7 +248,7 @@ export async function registerRoutes(
   app.patch("/api/committee-members/:id", isAuthenticated, async (req: any, res) => {
     try {
       const requesterId = req.user.id;
-      const { isAdmin: newIsAdmin, leadershipRole } = req.body;
+      const { isAdmin: newIsAdmin, leadershipRole, roleId } = req.body;
       
       const member = await storage.getCommitteeMember(req.params.id);
       if (!member) {
@@ -272,6 +272,13 @@ export async function registerRoutes(
           return res.status(403).json({ message: "Solo el superadmin puede asignar roles de liderazgo" });
         }
         updateData.leadershipRole = leadershipRole;
+      }
+      
+      if (roleId !== undefined) {
+        if (!isSuperAdminUser) {
+          return res.status(403).json({ message: "Solo el superadmin puede asignar roles" });
+        }
+        updateData.roleId = roleId;
       }
       
       if (Object.keys(updateData).length === 0) {

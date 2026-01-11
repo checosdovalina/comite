@@ -39,7 +39,7 @@ export interface IStorage {
   getUserCommittees(userId: string): Promise<Committee[]>;
   createCommitteeMember(data: InsertCommitteeMember): Promise<CommitteeMember>;
   updateCommitteeMember(id: string, data: Partial<InsertCommitteeMember>): Promise<CommitteeMember | undefined>;
-  getAllMembers(): Promise<(CommitteeMember & { user?: User; committee?: Committee })[]>;
+  getAllMembers(): Promise<(CommitteeMember & { user?: User; committee?: Committee; role?: Role })[]>;
   
   getAttendanceSlots(committeeId: string, startDate: string, endDate: string): Promise<(AttendanceSlot & { attendances?: (Attendance & { user?: User })[] })[]>;
   getAttendanceSlot(id: string): Promise<AttendanceSlot | undefined>;
@@ -162,14 +162,19 @@ export class DatabaseStorage implements IStorage {
     return member;
   }
 
-  async getAllMembers(): Promise<(CommitteeMember & { user?: User; committee?: Committee })[]> {
+  async getAllMembers(): Promise<(CommitteeMember & { user?: User; committee?: Committee; role?: Role })[]> {
     const members = await db.select().from(committeeMembers);
     
     const membersWithDetails = await Promise.all(
       members.map(async (member) => {
         const [user] = await db.select().from(users).where(eq(users.id, member.userId));
         const [committee] = await db.select().from(committees).where(eq(committees.id, member.committeeId));
-        return { ...member, user, committee };
+        let role: Role | undefined = undefined;
+        if (member.roleId) {
+          const [roleData] = await db.select().from(roles).where(eq(roles.id, member.roleId));
+          role = roleData;
+        }
+        return { ...member, user, committee, role };
       })
     );
     
