@@ -20,6 +20,7 @@ import CalendarPage from "@/pages/calendar";
 import AttendancesPage from "@/pages/attendances";
 import AttendanceReportsPage from "@/pages/attendance-reports";
 import MembersPage from "@/pages/members";
+import ActivitiesPage from "@/pages/activities";
 import ProfilePage from "@/pages/profile";
 import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
@@ -49,6 +50,7 @@ function AuthenticatedRouter() {
               <Route path="/attendances" component={AttendancesPage} />
               <Route path="/attendance-reports" component={AttendanceReportsPage} />
               <Route path="/members" component={MembersPage} />
+              <Route path="/activities" component={ActivitiesPage} />
               <Route path="/profile" component={ProfilePage} />
               <Route path="/settings" component={SettingsPage} />
               <Route component={NotFound} />

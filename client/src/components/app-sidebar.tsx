@@ -23,6 +23,7 @@ import {
   Users,
   ClipboardList,
   FileSpreadsheet,
+  ListTodo,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -45,6 +46,11 @@ const mainNavItems = [
     title: "Asistencias",
     url: "/attendances",
     icon: ClipboardList,
+  },
+  {
+    title: "Actividades",
+    url: "/activities",
+    icon: ListTodo,
   },
 ];
 
