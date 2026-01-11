@@ -24,6 +24,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   ListTodo,
+  Shield,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -133,6 +134,27 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {user?.isSuperAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Super Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/admin"}
+                  >
+                    <Link href="/admin" data-testid="nav-admin">
+                      <Shield className="h-4 w-4" />
+                      <span>Administración</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t p-3">
