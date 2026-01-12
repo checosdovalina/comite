@@ -19,7 +19,10 @@ import {
   Download,
   BellRing,
   Check,
+  Clock,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -31,6 +34,7 @@ export default function SettingsPage() {
     shiftReminders: true,
     calendarChanges: true,
     activityReminders: true,
+    reminderMinutesBefore: 60,
   });
 
   const handleInstall = async () => {
@@ -229,6 +233,36 @@ export default function SettingsPage() {
                 </p>
               </div>
               <Switch defaultChecked data-testid="switch-activity-reminders" />
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <Label>Tiempo de anticipación</Label>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Recibe el recordatorio antes del evento
+                </p>
+              </div>
+              <Select 
+                value={notificationSettings.reminderMinutesBefore.toString()}
+                onValueChange={(value) => setNotificationSettings(prev => ({ 
+                  ...prev, 
+                  reminderMinutesBefore: parseInt(value) 
+                }))}
+              >
+                <SelectTrigger className="w-[140px]" data-testid="select-reminder-minutes">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 minutos</SelectItem>
+                  <SelectItem value="30">30 minutos</SelectItem>
+                  <SelectItem value="60">1 hora</SelectItem>
+                  <SelectItem value="120">2 horas</SelectItem>
+                  <SelectItem value="1440">1 día</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
