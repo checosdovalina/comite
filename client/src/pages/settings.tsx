@@ -21,8 +21,7 @@ import {
   Check,
   Clock,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
@@ -34,7 +33,7 @@ export default function SettingsPage() {
     shiftReminders: true,
     calendarChanges: true,
     activityReminders: true,
-    reminderMinutesBefore: 60,
+    reminderTimes: [60] as number[],
   });
 
   const handleInstall = async () => {
@@ -235,34 +234,46 @@ export default function SettingsPage() {
               <Switch defaultChecked data-testid="switch-activity-reminders" />
             </div>
             <Separator />
-            <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="space-y-3">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <Label>Tiempo de anticipación</Label>
+                  <Label>Tiempos de anticipación</Label>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Recibe el recordatorio antes del evento
+                  Selecciona cuándo recibir recordatorios (puedes elegir varios)
                 </p>
               </div>
-              <Select 
-                value={notificationSettings.reminderMinutesBefore.toString()}
-                onValueChange={(value) => setNotificationSettings(prev => ({ 
-                  ...prev, 
-                  reminderMinutesBefore: parseInt(value) 
-                }))}
-              >
-                <SelectTrigger className="w-[140px]" data-testid="select-reminder-minutes">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 minutos</SelectItem>
-                  <SelectItem value="30">30 minutos</SelectItem>
-                  <SelectItem value="60">1 hora</SelectItem>
-                  <SelectItem value="120">2 horas</SelectItem>
-                  <SelectItem value="1440">1 día</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {[
+                  { value: 1, label: "1 minuto" },
+                  { value: 5, label: "5 minutos" },
+                  { value: 15, label: "15 minutos" },
+                  { value: 30, label: "30 minutos" },
+                  { value: 60, label: "1 hora" },
+                  { value: 120, label: "2 horas" },
+                  { value: 1440, label: "1 día" },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-center gap-2 p-2 rounded-md border cursor-pointer hover-elevate"
+                  >
+                    <Checkbox
+                      checked={notificationSettings.reminderTimes.includes(option.value)}
+                      onCheckedChange={(checked) => {
+                        setNotificationSettings(prev => ({
+                          ...prev,
+                          reminderTimes: checked
+                            ? [...prev.reminderTimes, option.value]
+                            : prev.reminderTimes.filter(t => t !== option.value)
+                        }));
+                      }}
+                      data-testid={`checkbox-reminder-${option.value}`}
+                    />
+                    <span className="text-sm">{option.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
