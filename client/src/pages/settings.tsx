@@ -25,8 +25,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const { isInstallable, isInstalled, promptInstall, notificationPermission, requestNotificationPermission } = usePWA();
+  const { 
+    isInstallable, 
+    isInstalled, 
+    isPushSubscribed,
+    promptInstall, 
+    notificationPermission, 
+    subscribeToPush,
+    unsubscribeFromPush,
+    testPushNotification,
+  } = usePWA();
   const { toast } = useToast();
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
 
   const [notificationSettings, setNotificationSettings] = useState({
     emailNotifications: true,
@@ -43,16 +54,45 @@ export default function SettingsPage() {
     }
   };
 
-  const handleEnableNotifications = async () => {
-    const permission = await requestNotificationPermission();
-    if (permission === "granted") {
-      toast({ title: "Notificaciones activadas", description: "Recibirás alertas de tus turnos y actividades." });
-    } else if (permission === "denied") {
-      toast({
-        title: "Notificaciones bloqueadas",
-        description: "Habilita las notificaciones en la configuración de tu navegador.",
-        variant: "destructive",
-      });
+  const handleSubscribePush = async () => {
+    setIsSubscribing(true);
+    try {
+      const success = await subscribeToPush();
+      if (success) {
+        toast({ title: "Notificaciones activadas", description: "Recibirás alertas de tus turnos y actividades." });
+      } else if (notificationPermission === "denied") {
+        toast({
+          title: "Notificaciones bloqueadas",
+          description: "Habilita las notificaciones en la configuración de tu navegador.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
+  const handleUnsubscribePush = async () => {
+    setIsSubscribing(true);
+    try {
+      await unsubscribeFromPush();
+      toast({ title: "Notificaciones desactivadas", description: "Ya no recibirás alertas push." });
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    setIsTesting(true);
+    try {
+      const success = await testPushNotification();
+      if (success) {
+        toast({ title: "Prueba enviada", description: "Deberías recibir una notificación en unos segundos." });
+      } else {
+        toast({ title: "Error", description: "No se pudo enviar la notificación de prueba.", variant: "destructive" });
+      }
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -115,20 +155,59 @@ export default function SettingsPage() {
                   Recibe alertas en tu dispositivo
                 </p>
               </div>
-              {notificationPermission === "granted" ? (
-                <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30">
-                  <Check className="h-3 w-3 mr-1" />
-                  Activadas
-                </Badge>
+              {isPushSubscribed ? (
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30">
+                    <Check className="h-3 w-3 mr-1" />
+                    Activadas
+                  </Badge>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleUnsubscribePush}
+                    disabled={isSubscribing}
+                    data-testid="button-disable-push"
+                  >
+                    Desactivar
+                  </Button>
+                </div>
               ) : notificationPermission === "denied" ? (
                 <Badge variant="destructive">Bloqueadas</Badge>
               ) : (
-                <Button variant="outline" onClick={handleEnableNotifications} className="touch-manipulation" data-testid="button-enable-push">
+                <Button 
+                  variant="outline" 
+                  onClick={handleSubscribePush} 
+                  disabled={isSubscribing}
+                  className="touch-manipulation" 
+                  data-testid="button-enable-push"
+                >
                   <BellRing className="h-4 w-4 mr-2" />
-                  Activar
+                  {isSubscribing ? "Activando..." : "Activar"}
                 </Button>
               )}
             </div>
+            {isPushSubscribed && (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label>Probar notificaciones</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Envía una notificación de prueba a tu dispositivo
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleTestPush}
+                    disabled={isTesting}
+                    className="touch-manipulation"
+                    data-testid="button-test-push"
+                  >
+                    {isTesting ? "Enviando..." : "Enviar prueba"}
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 

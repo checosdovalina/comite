@@ -8,7 +8,20 @@ import {
   startOfMonth,
   endOfMonth,
   format,
+  addMinutes,
+  isWithinInterval,
 } from "date-fns";
+import webpush from "web-push";
+import cron from "node-cron";
+
+// Configure web-push with VAPID keys
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    "mailto:admin@comites-distritales.com",
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 async function isUserMemberOfCommittee(userId: string, committeeId: string): Promise<boolean> {
   const memberships = await storage.getUserMemberships(userId);
@@ -945,5 +958,163 @@ export async function registerRoutes(
     }
   });
 
+  // Push Notification Subscription Routes
+  app.get("/api/vapid-public-key", (req, res) => {
+    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || "" });
+  });
+
+  app.post("/api/push-subscription", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { subscription } = req.body;
+      
+      if (!subscription) {
+        return res.status(400).json({ message: "Subscription required" });
+      }
+      
+      const existingPrefs = await storage.getNotificationPreferences(userId);
+      
+      await storage.upsertNotificationPreferences({
+        userId,
+        pushEnabled: true,
+        pushSubscription: JSON.stringify(subscription),
+        shiftReminders: existingPrefs?.shiftReminders ?? true,
+        activityReminders: existingPrefs?.activityReminders ?? true,
+        reminderMinutesBefore: existingPrefs?.reminderMinutesBefore ?? 60,
+      });
+      
+      res.json({ message: "Subscription saved successfully" });
+    } catch (error) {
+      console.error("Error saving push subscription:", error);
+      res.status(500).json({ message: "Failed to save subscription" });
+    }
+  });
+
+  app.delete("/api/push-subscription", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const prefs = await storage.getNotificationPreferences(userId);
+      
+      if (prefs) {
+        await storage.upsertNotificationPreferences({
+          ...prefs,
+          pushEnabled: false,
+          pushSubscription: null,
+        });
+      }
+      
+      res.json({ message: "Subscription removed successfully" });
+    } catch (error) {
+      console.error("Error removing push subscription:", error);
+      res.status(500).json({ message: "Failed to remove subscription" });
+    }
+  });
+
+  // Test push notification (for debugging)
+  app.post("/api/test-push", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const prefs = await storage.getNotificationPreferences(userId);
+      
+      if (!prefs?.pushEnabled || !prefs?.pushSubscription) {
+        return res.status(400).json({ message: "Push notifications not enabled" });
+      }
+      
+      const subscription = JSON.parse(prefs.pushSubscription);
+      
+      await webpush.sendNotification(
+        subscription,
+        JSON.stringify({
+          title: "Prueba de Notificación",
+          body: "Las notificaciones push están funcionando correctamente.",
+          data: { url: "/" }
+        })
+      );
+      
+      res.json({ message: "Test notification sent" });
+    } catch (error) {
+      console.error("Error sending test notification:", error);
+      res.status(500).json({ message: "Failed to send test notification" });
+    }
+  });
+
+  // Start notification scheduler (runs every minute)
+  cron.schedule("* * * * *", async () => {
+    try {
+      await sendScheduledNotifications();
+    } catch (error) {
+      console.error("Error in notification scheduler:", error);
+    }
+  });
+
   return httpServer;
+}
+
+// Track sent notifications to prevent duplicates (clears old entries every hour)
+const sentNotifications = new Map<string, number>();
+setInterval(() => {
+  const oneHourAgo = Date.now() - 3600000;
+  for (const [key, timestamp] of sentNotifications.entries()) {
+    if (timestamp < oneHourAgo) {
+      sentNotifications.delete(key);
+    }
+  }
+}, 3600000);
+
+function getNotificationKey(userId: string, eventType: string, eventId: string, reminderMinutes: number): string {
+  return `${userId}:${eventType}:${eventId}:${reminderMinutes}`;
+}
+
+// Send notifications for upcoming events
+async function sendScheduledNotifications() {
+  const allUsers = await storage.getAllUsersWithPushEnabled();
+  
+  for (const prefs of allUsers) {
+    if (!prefs.pushSubscription) continue;
+    
+    try {
+      const subscription = JSON.parse(prefs.pushSubscription);
+      const reminderMinutes = prefs.reminderMinutesBefore || 60;
+      
+      // Check for upcoming attendance slots
+      if (prefs.shiftReminders) {
+        const userAttendances = await storage.getUserAttendancesForNotification(prefs.userId, reminderMinutes);
+        for (const attendance of userAttendances) {
+          const notifKey = getNotificationKey(prefs.userId, "attendance", attendance.id, reminderMinutes);
+          if (sentNotifications.has(notifKey)) continue;
+          
+          await webpush.sendNotification(
+            subscription,
+            JSON.stringify({
+              title: "Recordatorio de Turno",
+              body: `Tu turno comienza en ${reminderMinutes} minutos`,
+              data: { url: "/attendances" }
+            })
+          );
+          sentNotifications.set(notifKey, Date.now());
+        }
+      }
+      
+      // Check for upcoming activities
+      if (prefs.activityReminders) {
+        const userActivities = await storage.getUserActivitiesForNotification(prefs.userId, reminderMinutes);
+        for (const activity of userActivities) {
+          const notifKey = getNotificationKey(prefs.userId, "activity", activity.id, reminderMinutes);
+          if (sentNotifications.has(notifKey)) continue;
+          
+          await webpush.sendNotification(
+            subscription,
+            JSON.stringify({
+              title: "Recordatorio de Actividad",
+              body: `${activity.title} - en ${reminderMinutes} minutos`,
+              data: { url: "/activities" }
+            })
+          );
+          sentNotifications.set(notifKey, Date.now());
+        }
+      }
+    } catch (error) {
+      console.error(`Error sending notification to user ${prefs.userId}:`, error);
+    }
+  }
 }

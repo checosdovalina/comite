@@ -72,6 +72,10 @@ export interface IStorage {
   updateRole(id: string, data: Partial<InsertRole>): Promise<Role | undefined>;
   deleteRole(id: string): Promise<boolean>;
   getGeneralCommittees(): Promise<Committee[]>;
+  
+  getAllUsersWithPushEnabled(): Promise<NotificationPreferences[]>;
+  getUserAttendancesForNotification(userId: string, minutesBefore: number): Promise<Attendance[]>;
+  getUserActivitiesForNotification(userId: string, minutesBefore: number): Promise<MemberActivity[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -542,6 +546,56 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(committees).where(
       and(eq(committees.isActive, true), eq(committees.isGeneral, true))
     );
+  }
+
+  async getAllUsersWithPushEnabled(): Promise<NotificationPreferences[]> {
+    return await db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.pushEnabled, true));
+  }
+
+  async getUserAttendancesForNotification(userId: string, minutesBefore: number): Promise<Attendance[]> {
+    const now = new Date();
+    const targetTime = new Date(now.getTime() + minutesBefore * 60000);
+    const windowStart = new Date(targetTime.getTime() - 30000);
+    const windowEnd = new Date(targetTime.getTime() + 30000);
+    
+    const userAttendanceList = await db
+      .select()
+      .from(attendances)
+      .innerJoin(attendanceSlots, eq(attendances.slotId, attendanceSlots.id))
+      .where(eq(attendances.userId, userId));
+    
+    return userAttendanceList
+      .filter(row => {
+        const slotDate = new Date(row.attendance_slots.date);
+        const shift = row.attendance_slots.shift;
+        const startHour = shift === "morning" ? 9 : shift === "afternoon" ? 14 : 9;
+        slotDate.setHours(startHour, 0, 0, 0);
+        return slotDate >= windowStart && slotDate <= windowEnd;
+      })
+      .map(row => row.attendances);
+  }
+
+  async getUserActivitiesForNotification(userId: string, minutesBefore: number): Promise<MemberActivity[]> {
+    const now = new Date();
+    const targetTime = new Date(now.getTime() + minutesBefore * 60000);
+    const windowStart = new Date(targetTime.getTime() - 30000);
+    const windowEnd = new Date(targetTime.getTime() + 30000);
+    
+    const activities = await db
+      .select()
+      .from(memberActivities)
+      .where(eq(memberActivities.userId, userId));
+    
+    return activities.filter(activity => {
+      const activityDate = new Date(activity.activityDate);
+      const startTime = activity.startTime || "09:00";
+      const [hours, mins] = startTime.split(":").map(Number);
+      activityDate.setHours(hours, mins, 0, 0);
+      return activityDate >= windowStart && activityDate <= windowEnd;
+    });
   }
 }
 
