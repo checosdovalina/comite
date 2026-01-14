@@ -1,8 +1,10 @@
-const CACHE_NAME = 'comites-v1';
+const CACHE_NAME = 'comites-v2';
 const urlsToCache = [
   '/',
   '/manifest.json',
-  '/favicon.png'
+  '/favicon.png',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
