@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -39,6 +40,8 @@ import {
   GraduationCap,
   CalendarDays,
   MoreHorizontal,
+  Filter,
+  User,
 } from "lucide-react";
 import {
   format,
@@ -99,9 +102,13 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedCommittee, setSelectedCommittee] = useState(initialCommitteeId);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedShift, setSelectedShift] = useState<string>("morning");
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [filterUser, setFilterUser] = useState<string>("all");
+  const [filterActivityType, setFilterActivityType] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -337,7 +344,53 @@ export default function CalendarPage() {
     }
     setSelectedDate(day);
     setSelectedShift("morning");
+    setIsDayDetailOpen(true);
+  };
+
+  const handleRegisterShift = () => {
+    setIsDayDetailOpen(false);
     setIsDialogOpen(true);
+  };
+
+  const uniqueUsers = useMemo(() => {
+    const users = new Map<string, string>();
+    calendarAttendances?.forEach((a) => {
+      if (!users.has(a.userId)) {
+        users.set(a.userId, a.userName);
+      }
+    });
+    calendarActivities?.forEach((a) => {
+      if (a.userName && !users.has(a.userId)) {
+        users.set(a.userId, a.userName);
+      }
+    });
+    return Array.from(users.entries()).map(([id, name]) => ({ id, name }));
+  }, [calendarAttendances, calendarActivities]);
+
+  const getFilteredActivitiesForDate = (date: Date): CalendarActivity[] => {
+    let activities = getActivitiesForDate(date);
+    if (filterUser !== "all") {
+      activities = activities.filter((a) => a.userId === filterUser);
+    }
+    if (filterActivityType !== "all") {
+      activities = activities.filter((a) => a.activityType === filterActivityType);
+    }
+    return activities;
+  };
+
+  const getFilteredMembersForDate = (date: Date, shift: string) => {
+    let members = getMembersForDate(date, shift);
+    if (filterUser !== "all") {
+      members = members.filter((m) => m.userId === filterUser);
+    }
+    return members;
+  };
+
+  const getFilteredMembersForDateBoth = (date: Date) => {
+    return {
+      morning: getFilteredMembersForDate(date, "morning"),
+      afternoon: getFilteredMembersForDate(date, "afternoon"),
+    };
   };
 
   const handleMarkAttendance = () => {
@@ -484,18 +537,84 @@ export default function CalendarPage() {
           </p>
         </div>
 
-        <Select value={selectedCommittee} onValueChange={setSelectedCommittee}>
-          <SelectTrigger className="w-full sm:w-[280px]" data-testid="select-committee">
-            <SelectValue placeholder="Seleccionar comité" />
-          </SelectTrigger>
-          <SelectContent>
-            {committees?.map((committee) => (
-              <SelectItem key={committee.id} value={committee.id}>
-                {committee.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={selectedCommittee} onValueChange={setSelectedCommittee}>
+            <SelectTrigger className="w-full sm:w-[280px]" data-testid="select-committee">
+              <SelectValue placeholder="Seleccionar comité" />
+            </SelectTrigger>
+            <SelectContent>
+              {committees?.map((committee) => (
+                <SelectItem key={committee.id} value={committee.id}>
+                  {committee.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Button
+            variant={showFilters ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className="touch-manipulation"
+            data-testid="button-toggle-filters"
+          >
+            <Filter className="h-4 w-4 mr-1" />
+            Filtros
+            {(filterUser !== "all" || filterActivityType !== "all") && (
+              <Badge variant="secondary" className="ml-1">{(filterUser !== "all" ? 1 : 0) + (filterActivityType !== "all" ? 1 : 0)}</Badge>
+            )}
+          </Button>
+        </div>
+
+        {showFilters && (
+          <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/50 rounded-md">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <Select value={filterUser} onValueChange={setFilterUser}>
+                <SelectTrigger className="w-[180px]" data-testid="select-filter-user">
+                  <SelectValue placeholder="Filtrar por usuario" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los usuarios</SelectItem>
+                  {uniqueUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <Select value={filterActivityType} onValueChange={setFilterActivityType}>
+                <SelectTrigger className="w-[180px]" data-testid="select-filter-activity-type">
+                  <SelectValue placeholder="Tipo de actividad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las actividades</SelectItem>
+                  {Object.entries(activityTypeConfig).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(filterUser !== "all" || filterActivityType !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFilterUser("all");
+                  setFilterActivityType("all");
+                }}
+                className="touch-manipulation"
+                data-testid="button-clear-filters"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Limpiar
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <Card>
@@ -627,9 +746,9 @@ export default function CalendarPage() {
                         </span>
                       )}
                     </div>
-                    {getMembersForDate(currentDate, "morning").length > 0 ? (
+                    {getFilteredMembersForDate(currentDate, "morning").length > 0 ? (
                       <div className="space-y-1 sm:space-y-2">
-                        {getMembersForDate(currentDate, "morning").map((m) => (
+                        {getFilteredMembersForDate(currentDate, "morning").map((m) => (
                           <div key={m.id} className="flex items-center gap-2 text-xs sm:text-sm">
                             <span>{m.userName}</span>
                             {m.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
@@ -651,9 +770,9 @@ export default function CalendarPage() {
                         </span>
                       )}
                     </div>
-                    {getMembersForDate(currentDate, "afternoon").length > 0 ? (
+                    {getFilteredMembersForDate(currentDate, "afternoon").length > 0 ? (
                       <div className="space-y-1 sm:space-y-2">
-                        {getMembersForDate(currentDate, "afternoon").map((m) => (
+                        {getFilteredMembersForDate(currentDate, "afternoon").map((m) => (
                           <div key={m.id} className="flex items-center gap-2 text-xs sm:text-sm">
                             <span>{m.userName}</span>
                             {m.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
@@ -665,14 +784,14 @@ export default function CalendarPage() {
                     )}
                   </div>
                   {/* Activities Section */}
-                  {getActivitiesForDate(currentDate).length > 0 && (
+                  {getFilteredActivitiesForDate(currentDate).length > 0 && (
                     <div className="mt-4">
                       <h4 className="font-semibold text-sm sm:text-base mb-2 flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5" />
                         Actividades del día
                       </h4>
                       <div className="space-y-2">
-                        {getActivitiesForDate(currentDate).map((activity) => {
+                        {getFilteredActivitiesForDate(currentDate).map((activity) => {
                           const config = activityTypeConfig[activity.activityType] || activityTypeConfig.other;
                           const ActivityIcon = config.icon;
                           return (
@@ -720,8 +839,8 @@ export default function CalendarPage() {
                 {weekDaysArray.map((day, index) => {
                   const isDayToday = isToday(day);
                   const myAttendance = hasAttendanceOnDate(day);
-                  const members = getMembersForDateBoth(day);
-                  const activities = getActivitiesForDate(day);
+                  const members = getFilteredMembersForDateBoth(day);
+                  const activities = getFilteredActivitiesForDate(day);
                   const hasMorningMembers = members.morning.length > 0;
                   const hasAfternoonMembers = members.afternoon.length > 0;
                   const hasActivities = activities.length > 0;
@@ -825,8 +944,8 @@ export default function CalendarPage() {
                   const isCurrentMonth = isSameMonth(day, currentDate);
                   const isDayToday = isToday(day);
                   const myAttendance = hasAttendanceOnDate(day);
-                  const members = getMembersForDateBoth(day);
-                  const activities = getActivitiesForDate(day);
+                  const members = getFilteredMembersForDateBoth(day);
+                  const activities = getFilteredActivitiesForDate(day);
                   const hasMorningMembers = members.morning.length > 0;
                   const hasAfternoonMembers = members.afternoon.length > 0;
                   const hasActivities = activities.length > 0;
@@ -917,6 +1036,155 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
+      {/* Day Detail Dialog */}
+      <Dialog open={isDayDetailOpen} onOpenChange={setIsDayDetailOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Detalle del Día
+            </DialogTitle>
+            <DialogDescription>
+              {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM yyyy", { locale: es })}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedDate && (
+            <Tabs defaultValue="shifts" className="flex-1 overflow-hidden flex flex-col">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="shifts" data-testid="tab-shifts">
+                  <Clock className="h-4 w-4 mr-1" />
+                  Turnos
+                </TabsTrigger>
+                <TabsTrigger value="activities" data-testid="tab-activities">
+                  <CalendarDays className="h-4 w-4 mr-1" />
+                  Actividades
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="shifts" className="flex-1 overflow-y-auto space-y-4 mt-4">
+                {/* Morning Shift */}
+                <div className={`p-4 rounded-md ${hasAttendanceOnDate(selectedDate).morning ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sun className="h-5 w-5" />
+                    <span className="font-semibold">Turno Mañana</span>
+                    {selectedCommitteeData && (
+                      <span className="text-sm text-muted-foreground">
+                        ({selectedCommitteeData.morningStart} - {selectedCommitteeData.morningEnd})
+                      </span>
+                    )}
+                  </div>
+                  {getFilteredMembersForDate(selectedDate, "morning").length > 0 ? (
+                    <div className="space-y-2">
+                      {getFilteredMembersForDate(selectedDate, "morning").map((m) => (
+                        <div key={m.id} className="flex items-center gap-2 text-sm">
+                          <User className="h-4 w-4" />
+                          <span>{m.userName}</span>
+                          {m.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Sin registros</p>
+                  )}
+                </div>
+
+                {/* Afternoon Shift */}
+                <div className={`p-4 rounded-md ${hasAttendanceOnDate(selectedDate).afternoon ? "bg-green-100 dark:bg-green-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sunset className="h-5 w-5" />
+                    <span className="font-semibold">Turno Tarde</span>
+                    {selectedCommitteeData && (
+                      <span className="text-sm text-muted-foreground">
+                        ({selectedCommitteeData.afternoonStart} - {selectedCommitteeData.afternoonEnd})
+                      </span>
+                    )}
+                  </div>
+                  {getFilteredMembersForDate(selectedDate, "afternoon").length > 0 ? (
+                    <div className="space-y-2">
+                      {getFilteredMembersForDate(selectedDate, "afternoon").map((m) => (
+                        <div key={m.id} className="flex items-center gap-2 text-sm">
+                          <User className="h-4 w-4" />
+                          <span>{m.userName}</span>
+                          {m.userId === user?.id && <Badge variant="secondary">Tú</Badge>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Sin registros</p>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="activities" className="flex-1 overflow-y-auto space-y-3 mt-4">
+                {getFilteredActivitiesForDate(selectedDate).length > 0 ? (
+                  getFilteredActivitiesForDate(selectedDate).map((activity) => {
+                    const config = activityTypeConfig[activity.activityType] || activityTypeConfig.other;
+                    const ActivityIcon = config.icon;
+                    return (
+                      <div key={activity.id} className={`p-4 rounded-md ${config.color}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <ActivityIcon className="h-5 w-5 flex-shrink-0" />
+                          <span className="font-semibold">{activity.title}</span>
+                          <Badge variant="outline" className="ml-auto">{config.label}</Badge>
+                        </div>
+                        {activity.description && (
+                          <p className="text-sm mb-2 opacity-90">{activity.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-3 text-xs opacity-75">
+                          {activity.startTime && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {activity.startTime}
+                              {activity.endTime && ` - ${activity.endTime}`}
+                            </div>
+                          )}
+                          {activity.userName && (
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {activity.userName}
+                            </div>
+                          )}
+                          {activity.location && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {activity.location}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No hay actividades para este día</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsDayDetailOpen(false)}
+              data-testid="button-close-day-detail"
+            >
+              Cerrar
+            </Button>
+            <Button
+              onClick={handleRegisterShift}
+              data-testid="button-register-shift-from-detail"
+            >
+              <Check className="h-4 w-4 mr-2" />
+              Registrar Turno
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shift Registration Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
