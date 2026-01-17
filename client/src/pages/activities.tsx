@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
+import type { CounselorTeam } from "@shared/schema";
 import {
   Card,
   CardContent,
@@ -66,11 +67,16 @@ const activityTypes = [
   { value: "other", label: "Otro", icon: MoreHorizontal },
 ];
 
+type TeamWithDetails = CounselorTeam & {
+  committee?: { id: string; name: string };
+};
+
 export default function ActivitiesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedCommittee, setSelectedCommittee] = useState<string>("");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<MemberActivity | null>(null);
   const [formData, setFormData] = useState({
@@ -83,6 +89,7 @@ export default function ActivitiesPage() {
     location: "",
     notes: "",
     meetingUrl: "",
+    teamId: "", // New field for team association
   });
 
   const startDate = format(startOfMonth(currentDate), "yyyy-MM-dd");
@@ -92,15 +99,37 @@ export default function ActivitiesPage() {
     queryKey: ["/api/committees"],
   });
 
+  // Fetch user's teams for team filtering
+  const { data: myTeams } = useQuery<TeamWithDetails[]>({
+    queryKey: ["/api/my-teams"],
+  });
+
   const { data: activities, isLoading: activitiesLoading } = useQuery<(MemberActivity & { committee?: Committee })[]>({
     queryKey: ["/api/activities", startDate, endDate],
     queryFn: () => fetch(`/api/activities?startDate=${startDate}&endDate=${endDate}`).then(r => r.json()),
   });
 
+  // Fetch team activities when a team is selected
+  const { data: teamActivities, isLoading: teamActivitiesLoading } = useQuery<MemberActivity[]>({
+    queryKey: ["/api/teams", selectedTeamId, "activities", startDate, endDate],
+    queryFn: () => fetch(`/api/teams/${selectedTeamId}/activities?startDate=${startDate}&endDate=${endDate}`).then(r => r.json()),
+    enabled: !!selectedTeamId,
+  });
+
+  // Determine loading state based on current view
+  const isLoading = selectedTeamId ? teamActivitiesLoading : activitiesLoading;
+
+  // Get selected team details
+  const selectedTeam = myTeams?.find(t => t.id === selectedTeamId);
+
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/activities", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      // Also invalidate team activities if in team view
+      if (selectedTeamId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/teams", selectedTeamId, "activities"] });
+      }
       setIsDialogOpen(false);
       resetForm();
       toast({ title: "Actividad registrada", description: "La actividad se ha guardado correctamente." });
@@ -115,6 +144,10 @@ export default function ActivitiesPage() {
       apiRequest("PATCH", `/api/activities/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      // Invalidate all team activity queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === "/api/teams" && query.queryKey[2] === "activities"
+      });
       setIsDialogOpen(false);
       setEditingActivity(null);
       resetForm();
@@ -129,6 +162,10 @@ export default function ActivitiesPage() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/activities/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      // Invalidate all team activity queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === "/api/teams" && query.queryKey[2] === "activities"
+      });
       toast({ title: "Actividad eliminada", description: "La actividad se ha eliminado correctamente." });
     },
     onError: () => {
@@ -141,6 +178,10 @@ export default function ActivitiesPage() {
       apiRequest("PATCH", `/api/activities/${id}`, { isCompleted }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      // Invalidate all team activity queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === "/api/teams" && query.queryKey[2] === "activities"
+      });
     },
   });
 
@@ -149,6 +190,10 @@ export default function ActivitiesPage() {
       apiRequest("PATCH", `/api/activities/${id}`, { isVisibleOnCalendar }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      // Invalidate all team activity queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === "/api/teams" && query.queryKey[2] === "activities"
+      });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey;
@@ -175,6 +220,7 @@ export default function ActivitiesPage() {
       location: "",
       notes: "",
       meetingUrl: "",
+      teamId: selectedTeamId || "",
     });
   };
 
@@ -191,12 +237,16 @@ export default function ActivitiesPage() {
         location: activity.location || "",
         notes: activity.notes || "",
         meetingUrl: activity.meetingUrl || "",
+        teamId: activity.teamId || "",
       });
       setSelectedCommittee(activity.committeeId);
     } else {
       setEditingActivity(null);
       resetForm();
-      if (committees && committees.length > 0 && !selectedCommittee) {
+      // If team view is active, use the team's committee
+      if (selectedTeamId && selectedTeam) {
+        setSelectedCommittee(selectedTeam.committeeId);
+      } else if (committees && committees.length > 0 && !selectedCommittee) {
         setSelectedCommittee(committees[0].id);
       }
     }
@@ -208,7 +258,15 @@ export default function ActivitiesPage() {
       toast({ title: "Error", description: "El título es obligatorio.", variant: "destructive" });
       return;
     }
-    const committeeToUse = selectedCommittee || (committees && committees.length > 0 ? committees[0].id : "");
+    
+    // Use selected team's committee if in team view
+    let committeeToUse = selectedCommittee;
+    if (selectedTeamId && selectedTeam) {
+      committeeToUse = selectedTeam.committeeId;
+    } else if (!committeeToUse && committees && committees.length > 0) {
+      committeeToUse = committees[0].id;
+    }
+    
     if (!committeeToUse) {
       toast({ title: "Error", description: "Selecciona un comité.", variant: "destructive" });
       return;
@@ -217,6 +275,7 @@ export default function ActivitiesPage() {
     const payload = {
       ...formData,
       committeeId: committeeToUse,
+      teamId: selectedTeamId || formData.teamId || null, // Associate with team if in team view
     };
 
     if (editingActivity) {
@@ -230,9 +289,12 @@ export default function ActivitiesPage() {
     return activityTypes.find((t) => t.value === type) || activityTypes[5];
   };
 
-  const filteredActivities = activities?.filter(
-    (a) => !selectedCommittee || a.committeeId === selectedCommittee
-  );
+  // Use team activities if team is selected, otherwise use committee activities
+  const displayActivities = selectedTeamId 
+    ? teamActivities 
+    : activities?.filter((a) => !selectedCommittee || a.committeeId === selectedCommittee);
+
+  const filteredActivities = displayActivities;
 
   const groupedActivities = filteredActivities?.reduce((acc, activity) => {
     const date = activity.activityDate;
@@ -257,33 +319,75 @@ export default function ActivitiesPage() {
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
-            Mis Actividades
+            {selectedTeamId && selectedTeam ? `Actividades de ${selectedTeam.name}` : "Mis Actividades"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Registra y gestiona tus actividades del comité
+            {selectedTeamId 
+              ? "Actividades exclusivas de tu equipo de consejería"
+              : "Registra y gestiona tus actividades del comité"}
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Select value={selectedCommittee || "all"} onValueChange={(val) => setSelectedCommittee(val === "all" ? "" : val)}>
-            <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-committee">
-              <SelectValue placeholder="Todos los comités" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los comités</SelectItem>
-              {committees?.map((committee) => (
-                <SelectItem key={committee.id} value={committee.id}>
-                  {committee.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {selectedTeamId ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              <Users className="h-3 w-3 mr-1" />
+              Equipo: {selectedTeam?.name || "Cargando..."}
+            </Badge>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setSelectedTeamId("")}
+              data-testid="button-exit-team-view"
+            >
+              Salir de vista de equipo
+            </Button>
+            <Button onClick={() => handleOpenDialog()} className="touch-manipulation" data-testid="button-add-activity">
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Actividad
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Select value={selectedCommittee || "all"} onValueChange={(val) => setSelectedCommittee(val === "all" ? "" : val)}>
+              <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-committee">
+                <SelectValue placeholder="Todos los comités" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los comités</SelectItem>
+                {committees?.map((committee) => (
+                  <SelectItem key={committee.id} value={committee.id}>
+                    {committee.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Button onClick={() => handleOpenDialog()} className="touch-manipulation" data-testid="button-add-activity">
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Actividad
-          </Button>
-        </div>
+            {myTeams && myTeams.length > 0 && (
+              <Select value={selectedTeamId || "none"} onValueChange={(val) => setSelectedTeamId(val === "none" ? "" : val)}>
+                <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-team">
+                  <SelectValue placeholder="Filtrar por equipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin filtro de equipo</SelectItem>
+                  {myTeams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {team.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <Button onClick={() => handleOpenDialog()} className="touch-manipulation" data-testid="button-add-activity">
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Actividad
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card>
@@ -313,7 +417,7 @@ export default function ActivitiesPage() {
           </div>
         </CardHeader>
         <CardContent className="p-2 sm:p-6">
-          {activitiesLoading ? (
+          {isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-20 w-full" />
@@ -373,13 +477,21 @@ export default function ActivitiesPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <div>
-                                  <h3
-                                    className={`font-medium text-sm sm:text-base ${
-                                      activity.isCompleted ? "line-through text-muted-foreground" : ""
-                                    }`}
-                                  >
-                                    {activity.title}
-                                  </h3>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3
+                                      className={`font-medium text-sm sm:text-base ${
+                                        activity.isCompleted ? "line-through text-muted-foreground" : ""
+                                      }`}
+                                    >
+                                      {activity.title}
+                                    </h3>
+                                    {activity.teamId && (
+                                      <Badge variant="outline" className="text-xs">
+                                        <Users className="h-3 w-3 mr-1" />
+                                        Equipo
+                                      </Badge>
+                                    )}
+                                  </div>
                                   {activity.description && (
                                     <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 line-clamp-2">
                                       {activity.description}
