@@ -119,9 +119,11 @@ export default function CalendarPage() {
   const search = useSearch();
   const params = new URLSearchParams(search);
   const initialCommitteeId = params.get("committee") || "";
+  const teamIdFromUrl = params.get("team") || "";
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedCommittee, setSelectedCommittee] = useState(initialCommitteeId);
+  const [selectedTeamId, setSelectedTeamId] = useState(teamIdFromUrl);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -204,8 +206,35 @@ export default function CalendarPage() {
       if (!response.ok) throw new Error("Failed to fetch calendar activities");
       return response.json();
     },
-    enabled: !!selectedCommittee,
+    enabled: !!selectedCommittee && !selectedTeamId,
   });
+
+  const { data: teamActivities } = useQuery<CalendarActivity[]>({
+    queryKey: ["/api/teams", selectedTeamId, "activities", format(dateRange.start, "yyyy-MM-dd"), format(dateRange.end, "yyyy-MM-dd")],
+    queryFn: async () => {
+      if (!selectedTeamId) return [];
+      const response = await fetch(
+        `/api/teams/${selectedTeamId}/activities?startDate=${format(dateRange.start, "yyyy-MM-dd")}&endDate=${format(dateRange.end, "yyyy-MM-dd")}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch team activities");
+      return response.json();
+    },
+    enabled: !!selectedTeamId,
+  });
+
+  const { data: selectedTeamData } = useQuery<{ id: string; name: string; committeeId: string }>({
+    queryKey: ["/api/teams", selectedTeamId],
+    queryFn: async () => {
+      if (!selectedTeamId) return null;
+      const response = await fetch(`/api/teams/${selectedTeamId}`);
+      if (!response.ok) throw new Error("Failed to fetch team");
+      return response.json();
+    },
+    enabled: !!selectedTeamId,
+  });
+
+  // Merge activities - use team activities if in team view, otherwise use committee activities
+  const displayActivities = selectedTeamId ? (teamActivities || []) : (calendarActivities || []);
 
   const markAttendanceMutation = useMutation({
     mutationFn: async (data: { committeeId: string; date: string; shift: string }) => {
@@ -404,16 +433,16 @@ export default function CalendarPage() {
   };
 
   const getActivitiesForDate = (date: Date): CalendarActivity[] => {
-    if (!calendarActivities) return [];
+    if (!displayActivities) return [];
     const dateStr = format(date, "yyyy-MM-dd");
-    return calendarActivities.filter((a) => a.activityDate === dateStr);
+    return displayActivities.filter((a) => a.activityDate === dateStr);
   };
 
   const handleDayClick = (day: Date) => {
-    if (!selectedCommittee) {
+    if (!selectedCommittee && !selectedTeamId) {
       toast({
-        title: "Selecciona un comité",
-        description: "Primero debes seleccionar un comité",
+        title: "Selecciona un comité o equipo",
+        description: "Primero debes seleccionar un comité o un equipo",
         variant: "destructive",
       });
       return;
@@ -435,13 +464,13 @@ export default function CalendarPage() {
         users.set(a.userId, a.userName);
       }
     });
-    calendarActivities?.forEach((a) => {
+    displayActivities?.forEach((a) => {
       if (a.userName && !users.has(a.userId)) {
         users.set(a.userId, a.userName);
       }
     });
     return Array.from(users.entries()).map(([id, name]) => ({ id, name }));
-  }, [calendarAttendances, calendarActivities]);
+  }, [calendarAttendances, displayActivities]);
 
   const getFilteredActivitiesForDate = (date: Date): CalendarActivity[] => {
     let activities = getActivitiesForDate(date);
@@ -606,17 +635,39 @@ export default function CalendarPage() {
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
-            {selectedCommitteeData?.usesShifts !== false ? "Registrar Turno" : "Calendario de Actividades"}
+            {selectedTeamId && selectedTeamData
+              ? `Calendario de ${selectedTeamData.name}`
+              : selectedCommitteeData?.usesShifts !== false 
+                ? "Registrar Turno" 
+                : "Calendario de Actividades"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {selectedCommitteeData?.usesShifts !== false 
-              ? "Selecciona una fecha para registrar tu turno"
-              : "Consulta las actividades programadas"}
+            {selectedTeamId 
+              ? "Actividades de tu equipo de consejería"
+              : selectedCommitteeData?.usesShifts !== false 
+                ? "Selecciona una fecha para registrar tu turno"
+                : "Consulta las actividades programadas"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={selectedCommittee} onValueChange={setSelectedCommittee}>
+        {selectedTeamId ? (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              Equipo: {selectedTeamData?.name || "Cargando..."}
+            </Badge>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setSelectedTeamId("")}
+              data-testid="button-exit-team-view"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Salir de vista de equipo
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={selectedCommittee} onValueChange={setSelectedCommittee}>
             <SelectTrigger className="w-full sm:w-[280px]" data-testid="select-committee">
               <SelectValue placeholder="Seleccionar comité" />
             </SelectTrigger>
@@ -642,9 +693,10 @@ export default function CalendarPage() {
               <Badge variant="secondary" className="ml-1">{(filterUser !== "all" ? 1 : 0) + (filterActivityType !== "all" ? 1 : 0)}</Badge>
             )}
           </Button>
-        </div>
+          </div>
+        )}
 
-        {showFilters && (
+        {showFilters && !selectedTeamId && (
           <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/50 rounded-md">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
