@@ -1087,6 +1087,44 @@ export default function CalendarPage() {
                   ) : (
                     <p className="text-sm text-muted-foreground">Sin registros</p>
                   )}
+                  <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-800">
+                    {hasAttendanceOnDate(selectedDate).morning ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          const attendance = getAttendanceForDate(selectedDate, "morning");
+                          if (attendance) {
+                            cancelAttendanceMutation.mutate(attendance.id);
+                          }
+                        }}
+                        disabled={cancelAttendanceMutation.isPending}
+                        data-testid="button-cancel-morning-shift"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancelar mi turno
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedShift("morning");
+                          markAttendanceMutation.mutate({
+                            date: format(selectedDate, "yyyy-MM-dd"),
+                            shift: "morning",
+                            committeeId: selectedCommittee,
+                          });
+                        }}
+                        disabled={markAttendanceMutation.isPending}
+                        data-testid="button-register-morning-shift"
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        Registrarme en este turno
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Afternoon Shift */}
@@ -1113,6 +1151,44 @@ export default function CalendarPage() {
                   ) : (
                     <p className="text-sm text-muted-foreground">Sin registros</p>
                   )}
+                  <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+                    {hasAttendanceOnDate(selectedDate).afternoon ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          const attendance = getAttendanceForDate(selectedDate, "afternoon");
+                          if (attendance) {
+                            cancelAttendanceMutation.mutate(attendance.id);
+                          }
+                        }}
+                        disabled={cancelAttendanceMutation.isPending}
+                        data-testid="button-cancel-afternoon-shift"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancelar mi turno
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedShift("afternoon");
+                          markAttendanceMutation.mutate({
+                            date: format(selectedDate, "yyyy-MM-dd"),
+                            shift: "afternoon",
+                            committeeId: selectedCommittee,
+                          });
+                        }}
+                        disabled={markAttendanceMutation.isPending}
+                        data-testid="button-register-afternoon-shift"
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        Registrarme en este turno
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </TabsContent>
 
@@ -1172,13 +1248,6 @@ export default function CalendarPage() {
               data-testid="button-close-day-detail"
             >
               Cerrar
-            </Button>
-            <Button
-              onClick={handleRegisterShift}
-              data-testid="button-register-shift-from-detail"
-            >
-              <Check className="h-4 w-4 mr-2" />
-              Registrar Turno
             </Button>
           </DialogFooter>
         </DialogContent>
