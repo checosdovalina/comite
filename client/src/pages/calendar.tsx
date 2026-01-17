@@ -21,6 +21,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -126,6 +129,7 @@ export default function CalendarPage() {
   const [selectedTeamId, setSelectedTeamId] = useState(teamIdFromUrl);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDayDetailOpen, setIsDayDetailOpen] = useState(false);
+  const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedShift, setSelectedShift] = useState<string>("morning");
   const [viewMode, setViewMode] = useState<ViewMode>("month");
@@ -133,6 +137,15 @@ export default function CalendarPage() {
   const [filterActivityType, setFilterActivityType] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
+  const [activityFormData, setActivityFormData] = useState({
+    title: "",
+    description: "",
+    activityType: "other" as string,
+    startTime: "",
+    endTime: "",
+    location: "",
+    meetingUrl: "",
+  });
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -335,6 +348,69 @@ export default function CalendarPage() {
       });
     },
   });
+
+  const createActivityMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/activities", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/committees", selectedCommittee, "calendar-activities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
+      // Also invalidate team activities if in team view
+      if (selectedTeamId) {
+        queryClient.invalidateQueries({ 
+          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === "/api/teams" && query.queryKey[2] === "activities"
+        });
+      }
+      setIsActivityDialogOpen(false);
+      setActivityFormData({
+        title: "",
+        description: "",
+        activityType: "other",
+        startTime: "",
+        endTime: "",
+        location: "",
+        meetingUrl: "",
+      });
+      toast({
+        title: "Actividad creada",
+        description: "La actividad se ha registrado correctamente",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo crear la actividad",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateActivity = () => {
+    if (!activityFormData.title.trim()) {
+      toast({ title: "Error", description: "El título es obligatorio", variant: "destructive" });
+      return;
+    }
+    if (!selectedDate) {
+      toast({ title: "Error", description: "Selecciona una fecha", variant: "destructive" });
+      return;
+    }
+    
+    // Use selected committee, or team's committee if in team view
+    const committeeToUse = selectedCommittee || selectedTeamData?.committeeId;
+    if (!committeeToUse) {
+      toast({ title: "Error", description: "Selecciona un comité", variant: "destructive" });
+      return;
+    }
+
+    createActivityMutation.mutate({
+      ...activityFormData,
+      committeeId: committeeToUse,
+      activityDate: format(selectedDate, "yyyy-MM-dd"),
+      teamId: selectedTeamId || null,
+    });
+  };
 
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
@@ -1473,6 +1549,16 @@ export default function CalendarPage() {
                     <p className="text-muted-foreground">No hay actividades para este día</p>
                   </div>
                 )}
+                <div className="pt-4 border-t">
+                  <Button
+                    onClick={() => setIsActivityDialogOpen(true)}
+                    className="w-full"
+                    data-testid="button-add-activity-from-calendar"
+                  >
+                    <CalendarDays className="h-4 w-4 mr-2" />
+                    Agregar Actividad
+                  </Button>
+                </div>
               </TabsContent>
             </Tabs>
           )}
@@ -1590,6 +1676,130 @@ export default function CalendarPage() {
                 {markAttendanceMutation.isPending ? "Registrando..." : "Registrar Turno"}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Activity Creation Dialog */}
+      <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5" />
+              Nueva Actividad
+            </DialogTitle>
+            <DialogDescription>
+              {selectedDate && format(selectedDate, "EEEE, d 'de' MMMM yyyy", { locale: es })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="activity-title">Título *</Label>
+              <Input
+                id="activity-title"
+                placeholder="Título de la actividad"
+                value={activityFormData.title}
+                onChange={(e) => setActivityFormData({ ...activityFormData, title: e.target.value })}
+                data-testid="input-activity-title"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="activity-type">Tipo de actividad</Label>
+              <Select
+                value={activityFormData.activityType}
+                onValueChange={(val) => setActivityFormData({ ...activityFormData, activityType: val })}
+              >
+                <SelectTrigger data-testid="select-activity-type">
+                  <SelectValue placeholder="Selecciona el tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(activityTypeConfig).map(([value, config]) => (
+                    <SelectItem key={value} value={value}>
+                      <div className="flex items-center gap-2">
+                        <config.icon className="h-4 w-4" />
+                        {config.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="activity-start-time">Hora inicio</Label>
+                <Input
+                  id="activity-start-time"
+                  type="time"
+                  value={activityFormData.startTime}
+                  onChange={(e) => setActivityFormData({ ...activityFormData, startTime: e.target.value })}
+                  data-testid="input-activity-start-time"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="activity-end-time">Hora fin</Label>
+                <Input
+                  id="activity-end-time"
+                  type="time"
+                  value={activityFormData.endTime}
+                  onChange={(e) => setActivityFormData({ ...activityFormData, endTime: e.target.value })}
+                  data-testid="input-activity-end-time"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="activity-location">Ubicación</Label>
+              <Input
+                id="activity-location"
+                placeholder="Lugar de la actividad"
+                value={activityFormData.location}
+                onChange={(e) => setActivityFormData({ ...activityFormData, location: e.target.value })}
+                data-testid="input-activity-location"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="activity-meeting-url">Enlace de reunión</Label>
+              <Input
+                id="activity-meeting-url"
+                placeholder="https://meet.google.com/..."
+                value={activityFormData.meetingUrl}
+                onChange={(e) => setActivityFormData({ ...activityFormData, meetingUrl: e.target.value })}
+                data-testid="input-activity-meeting-url"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="activity-description">Descripción</Label>
+              <Textarea
+                id="activity-description"
+                placeholder="Descripción de la actividad"
+                value={activityFormData.description}
+                onChange={(e) => setActivityFormData({ ...activityFormData, description: e.target.value })}
+                rows={3}
+                data-testid="input-activity-description"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsActivityDialogOpen(false)}
+              data-testid="button-cancel-activity-dialog"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateActivity}
+              disabled={createActivityMutation.isPending}
+              data-testid="button-save-activity"
+            >
+              {createActivityMutation.isPending ? "Guardando..." : "Guardar Actividad"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
