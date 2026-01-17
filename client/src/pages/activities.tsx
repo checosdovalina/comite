@@ -51,6 +51,7 @@ import {
   MoreHorizontal,
   Eye,
   EyeOff,
+  Presentation,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Committee, MemberActivity } from "@shared/schema";
@@ -61,6 +62,7 @@ const activityTypes = [
   { value: "report", label: "Reporte", icon: FileText },
   { value: "training", label: "Capacitación", icon: GraduationCap },
   { value: "event", label: "Evento", icon: CalendarDays },
+  { value: "session", label: "Sesión", icon: Presentation },
   { value: "other", label: "Otro", icon: MoreHorizontal },
 ];
 

@@ -43,6 +43,7 @@ import {
   Filter,
   User,
   ExternalLink,
+  Presentation,
 } from "lucide-react";
 import {
   format,
@@ -101,6 +102,7 @@ const activityTypeConfig: Record<string, { icon: typeof Users; color: string; la
   report: { icon: FileText, color: "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300", label: "Reporte" },
   training: { icon: GraduationCap, color: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300", label: "Capacitación" },
   event: { icon: CalendarDays, color: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300", label: "Evento" },
+  session: { icon: Presentation, color: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300", label: "Sesión" },
   other: { icon: MoreHorizontal, color: "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300", label: "Otro" },
 };
 

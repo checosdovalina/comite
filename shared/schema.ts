@@ -96,7 +96,7 @@ export const attendanceRelations = relations(attendances, ({ one }) => ({
   }),
 }));
 
-export const activityTypeEnum = pgEnum("activity_type", ["meeting", "visit", "report", "training", "event", "other"]);
+export const activityTypeEnum = pgEnum("activity_type", ["meeting", "visit", "report", "training", "event", "session", "other"]);
 
 export const memberActivities = pgTable("member_activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
