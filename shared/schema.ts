@@ -117,10 +117,27 @@ export const memberActivities = pgTable("member_activities", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const memberActivityRelations = relations(memberActivities, ({ one }) => ({
+export const memberActivityRelations = relations(memberActivities, ({ one, many }) => ({
   committee: one(committees, {
     fields: [memberActivities.committeeId],
     references: [committees.id],
+  }),
+  activityAttendances: many(activityAttendances),
+}));
+
+export const activityAttendances = pgTable("activity_attendances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").notNull().references(() => memberActivities.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
+  status: text("status").notNull().default("registered"),
+  registeredAt: timestamp("registered_at").defaultNow(),
+  confirmedAt: timestamp("confirmed_at"),
+});
+
+export const activityAttendanceRelations = relations(activityAttendances, ({ one }) => ({
+  activity: one(memberActivities, {
+    fields: [activityAttendances.activityId],
+    references: [memberActivities.id],
   }),
 }));
 
@@ -174,6 +191,12 @@ export const insertNotificationPreferencesSchema = createInsertSchema(notificati
   updatedAt: true,
 });
 
+export const insertActivityAttendanceSchema = createInsertSchema(activityAttendances).omit({
+  id: true,
+  registeredAt: true,
+  confirmedAt: true,
+});
+
 export type Committee = typeof committees.$inferSelect;
 export type InsertCommittee = z.infer<typeof insertCommitteeSchema>;
 export type CommitteeMember = typeof committeeMembers.$inferSelect;
@@ -188,3 +211,5 @@ export type NotificationPreferences = typeof notificationPreferences.$inferSelec
 export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
 export type Role = typeof roles.$inferSelect;
 export type InsertRole = z.infer<typeof insertRoleSchema>;
+export type ActivityAttendance = typeof activityAttendances.$inferSelect;
+export type InsertActivityAttendance = z.infer<typeof insertActivityAttendanceSchema>;
