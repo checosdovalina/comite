@@ -102,6 +102,7 @@ export const memberActivities = pgTable("member_activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   committeeId: varchar("committee_id").notNull().references(() => committees.id, { onDelete: "cascade" }),
   userId: varchar("user_id").notNull(),
+  teamId: varchar("team_id").references(() => counselorTeams.id, { onDelete: "cascade" }), // Optional: for team-scoped activities
   title: text("title").notNull(),
   description: text("description"),
   activityType: activityTypeEnum("activity_type").notNull().default("other"),
@@ -153,6 +154,42 @@ export const notificationPreferences = pgTable("notification_preferences", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Counselor Teams - for Consejo General counselors to manage their auxiliaries
+export const counselorTeams = pgTable("counselor_teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  committeeId: varchar("committee_id").notNull().references(() => committees.id, { onDelete: "cascade" }),
+  ownerUserId: varchar("owner_user_id").notNull(), // The counselor who owns this team
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const counselorTeamRelations = relations(counselorTeams, ({ one, many }) => ({
+  committee: one(committees, {
+    fields: [counselorTeams.committeeId],
+    references: [committees.id],
+  }),
+  members: many(counselorTeamMembers),
+}));
+
+export const teamRoleEnum = pgEnum("team_role", ["counselor", "auxiliary"]);
+
+export const counselorTeamMembers = pgTable("counselor_team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull().references(() => counselorTeams.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
+  role: teamRoleEnum("role").notNull().default("auxiliary"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+export const counselorTeamMemberRelations = relations(counselorTeamMembers, ({ one }) => ({
+  team: one(counselorTeams, {
+    fields: [counselorTeamMembers.teamId],
+    references: [counselorTeams.id],
+  }),
+}));
+
 export const insertCommitteeSchema = createInsertSchema(committees).omit({
   id: true,
   createdAt: true,
@@ -197,6 +234,16 @@ export const insertActivityAttendanceSchema = createInsertSchema(activityAttenda
   confirmedAt: true,
 });
 
+export const insertCounselorTeamSchema = createInsertSchema(counselorTeams).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCounselorTeamMemberSchema = createInsertSchema(counselorTeamMembers).omit({
+  id: true,
+  joinedAt: true,
+});
+
 export type Committee = typeof committees.$inferSelect;
 export type InsertCommittee = z.infer<typeof insertCommitteeSchema>;
 export type CommitteeMember = typeof committeeMembers.$inferSelect;
@@ -213,3 +260,7 @@ export type Role = typeof roles.$inferSelect;
 export type InsertRole = z.infer<typeof insertRoleSchema>;
 export type ActivityAttendance = typeof activityAttendances.$inferSelect;
 export type InsertActivityAttendance = z.infer<typeof insertActivityAttendanceSchema>;
+export type CounselorTeam = typeof counselorTeams.$inferSelect;
+export type InsertCounselorTeam = z.infer<typeof insertCounselorTeamSchema>;
+export type CounselorTeamMember = typeof counselorTeamMembers.$inferSelect;
+export type InsertCounselorTeamMember = z.infer<typeof insertCounselorTeamMemberSchema>;
