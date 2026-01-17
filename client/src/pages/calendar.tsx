@@ -63,7 +63,7 @@ import {
   parseISO,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import type { Committee, Attendance, MemberActivity } from "@shared/schema";
+import type { Committee, Attendance, MemberActivity, ActivityAttendance } from "@shared/schema";
 
 interface AttendanceWithDetails extends Attendance {
   date?: string;
@@ -85,6 +85,15 @@ type ViewMode = "day" | "week" | "month";
 
 interface CalendarActivity extends MemberActivity {
   userName?: string;
+}
+
+interface ActivityAttendanceWithUser extends ActivityAttendance {
+  user?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
 }
 
 // Helper to ensure URLs have proper protocol
@@ -239,6 +248,60 @@ export default function CalendarPage() {
       toast({
         title: "Error",
         description: "No se pudo cancelar tu turno",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Activity attendance query and mutations
+  const { data: activityAttendances, isLoading: activityAttendancesLoading } = useQuery<ActivityAttendanceWithUser[]>({
+    queryKey: ["/api/activities", expandedActivityId, "attendances"],
+    queryFn: async () => {
+      if (!expandedActivityId) return [];
+      const response = await fetch(`/api/activities/${expandedActivityId}/attendances`);
+      if (!response.ok) throw new Error("Failed to fetch activity attendances");
+      return response.json();
+    },
+    enabled: !!expandedActivityId,
+  });
+
+  const registerForActivityMutation = useMutation({
+    mutationFn: async (activityId: string) => {
+      const response = await apiRequest("POST", `/api/activities/${activityId}/attendances`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/activities", expandedActivityId, "attendances"] });
+      toast({
+        title: "Asistencia registrada",
+        description: "Te has registrado para esta actividad",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo registrar tu asistencia",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const cancelActivityAttendanceMutation = useMutation({
+    mutationFn: async (attendanceId: string) => {
+      const response = await apiRequest("DELETE", `/api/activity-attendances/${attendanceId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/activities", expandedActivityId, "attendances"] });
+      toast({
+        title: "Asistencia cancelada",
+        description: "Tu registro ha sido cancelado",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "No se pudo cancelar tu registro",
         variant: "destructive",
       });
     },
@@ -1286,6 +1349,67 @@ export default function CalendarPage() {
                                 </Button>
                               </div>
                             )}
+                            
+                            {/* Activity Attendance Section */}
+                            <div className="mt-3 pt-3 border-t border-current/20" onClick={(e) => e.stopPropagation()}>
+                              <p className="text-xs font-medium mb-2">Asistencia:</p>
+                              
+                              {activityAttendancesLoading ? (
+                                <p className="text-xs opacity-75">Cargando...</p>
+                              ) : (
+                                <>
+                                  {activityAttendances && activityAttendances.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                      {activityAttendances.map((att) => (
+                                        <Badge 
+                                          key={att.id} 
+                                          variant="secondary" 
+                                          className="text-xs"
+                                        >
+                                          {att.user?.firstName || att.user?.email || "Usuario"}
+                                          {att.status === "confirmed" && (
+                                            <Check className="h-3 w-3 ml-1 text-green-600" />
+                                          )}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs opacity-75 mb-2">Nadie registrado aún</p>
+                                  )}
+                                  
+                                  {(() => {
+                                    const myAttendance = activityAttendances?.find(a => a.userId === user?.id);
+                                    if (myAttendance) {
+                                      return (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => cancelActivityAttendanceMutation.mutate(myAttendance.id)}
+                                          disabled={cancelActivityAttendanceMutation.isPending}
+                                          data-testid={`button-cancel-activity-attendance-${activity.id}`}
+                                        >
+                                          <X className="h-4 w-4 mr-2" />
+                                          Cancelar mi asistencia
+                                        </Button>
+                                      );
+                                    } else {
+                                      return (
+                                        <Button
+                                          variant="default"
+                                          size="sm"
+                                          onClick={() => registerForActivityMutation.mutate(activity.id)}
+                                          disabled={registerForActivityMutation.isPending}
+                                          data-testid={`button-register-activity-attendance-${activity.id}`}
+                                        >
+                                          <Check className="h-4 w-4 mr-2" />
+                                          Registrar mi asistencia
+                                        </Button>
+                                      );
+                                    }
+                                  })()}
+                                </>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

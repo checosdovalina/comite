@@ -822,10 +822,16 @@ export async function registerRoutes(
   // Activity Attendance Routes
   app.get("/api/activities/:activityId/attendances", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.id;
       const { activityId } = req.params;
       const activity = await storage.getMemberActivity(activityId);
       if (!activity) {
         return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      const isMember = await isUserMemberOfCommittee(userId, activity.committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this committee" });
       }
       
       const attendances = await storage.getActivityAttendances(activityId);
