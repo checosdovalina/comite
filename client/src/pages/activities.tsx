@@ -71,6 +71,14 @@ type TeamWithDetails = CounselorTeam & {
   committee?: { id: string; name: string };
 };
 
+type TeamContext = {
+  isGeneralCouncilMember: boolean;
+  isTeamOwner?: boolean;
+  isTeamAuxiliary: boolean;
+  teamId: string | null;
+  team: TeamWithDetails | null;
+};
+
 export default function ActivitiesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -89,7 +97,7 @@ export default function ActivitiesPage() {
     location: "",
     notes: "",
     meetingUrl: "",
-    teamId: "", // New field for team association
+    teamId: "",
   });
 
   const startDate = format(startOfMonth(currentDate), "yyyy-MM-dd");
@@ -99,36 +107,50 @@ export default function ActivitiesPage() {
     queryKey: ["/api/committees"],
   });
 
+  // Fetch user's team context to determine if they're restricted to team view
+  const { data: teamContext, isLoading: teamContextLoading } = useQuery<TeamContext>({
+    queryKey: ["/api/my-team-context"],
+  });
+
   // Fetch user's teams for team filtering
   const { data: myTeams } = useQuery<TeamWithDetails[]>({
     queryKey: ["/api/my-teams"],
   });
 
+  // Auto-set team filter for team auxiliaries in General Council
+  const effectiveTeamId = teamContext?.isTeamAuxiliary && teamContext.teamId 
+    ? teamContext.teamId 
+    : selectedTeamId;
+
+  // Team auxiliaries are restricted to team view only
+  const isRestrictedToTeam = teamContext?.isTeamAuxiliary === true;
+
   const { data: activities, isLoading: activitiesLoading } = useQuery<(MemberActivity & { committee?: Committee })[]>({
     queryKey: ["/api/activities", startDate, endDate],
     queryFn: () => fetch(`/api/activities?startDate=${startDate}&endDate=${endDate}`).then(r => r.json()),
+    enabled: !isRestrictedToTeam && !effectiveTeamId,
   });
 
-  // Fetch team activities when a team is selected
+  // Fetch team activities when a team is selected or user is restricted to team
   const { data: teamActivities, isLoading: teamActivitiesLoading } = useQuery<MemberActivity[]>({
-    queryKey: ["/api/teams", selectedTeamId, "activities", startDate, endDate],
-    queryFn: () => fetch(`/api/teams/${selectedTeamId}/activities?startDate=${startDate}&endDate=${endDate}`).then(r => r.json()),
-    enabled: !!selectedTeamId,
+    queryKey: ["/api/teams", effectiveTeamId, "activities", startDate, endDate],
+    queryFn: () => fetch(`/api/teams/${effectiveTeamId}/activities?startDate=${startDate}&endDate=${endDate}`).then(r => r.json()),
+    enabled: !!effectiveTeamId,
   });
 
   // Determine loading state based on current view
-  const isLoading = selectedTeamId ? teamActivitiesLoading : activitiesLoading;
+  const isLoading = teamContextLoading || (effectiveTeamId ? teamActivitiesLoading : activitiesLoading);
 
   // Get selected team details
-  const selectedTeam = myTeams?.find(t => t.id === selectedTeamId);
+  const selectedTeam = myTeams?.find(t => t.id === effectiveTeamId) || teamContext?.team;
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/activities", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       // Also invalidate team activities if in team view
-      if (selectedTeamId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/teams", selectedTeamId, "activities"] });
+      if (effectiveTeamId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/teams", effectiveTeamId, "activities"] });
       }
       setIsDialogOpen(false);
       resetForm();
@@ -220,7 +242,7 @@ export default function ActivitiesPage() {
       location: "",
       notes: "",
       meetingUrl: "",
-      teamId: selectedTeamId || "",
+      teamId: effectiveTeamId || "",
     });
   };
 
@@ -244,7 +266,7 @@ export default function ActivitiesPage() {
       setEditingActivity(null);
       resetForm();
       // If team view is active, use the team's committee
-      if (selectedTeamId && selectedTeam) {
+      if (effectiveTeamId && selectedTeam) {
         setSelectedCommittee(selectedTeam.committeeId);
       } else if (committees && committees.length > 0 && !selectedCommittee) {
         setSelectedCommittee(committees[0].id);
@@ -261,7 +283,7 @@ export default function ActivitiesPage() {
     
     // Use selected team's committee if in team view
     let committeeToUse = selectedCommittee;
-    if (selectedTeamId && selectedTeam) {
+    if (effectiveTeamId && selectedTeam) {
       committeeToUse = selectedTeam.committeeId;
     } else if (!committeeToUse && committees && committees.length > 0) {
       committeeToUse = committees[0].id;
@@ -275,7 +297,7 @@ export default function ActivitiesPage() {
     const payload = {
       ...formData,
       committeeId: committeeToUse,
-      teamId: selectedTeamId || formData.teamId || null, // Associate with team if in team view
+      teamId: effectiveTeamId || formData.teamId || null, // Associate with team if in team view
     };
 
     if (editingActivity) {
@@ -289,8 +311,8 @@ export default function ActivitiesPage() {
     return activityTypes.find((t) => t.value === type) || activityTypes[5];
   };
 
-  // Use team activities if team is selected, otherwise use committee activities
-  const displayActivities = selectedTeamId 
+  // Use team activities if team is selected or user is restricted to team, otherwise use committee activities
+  const displayActivities = effectiveTeamId 
     ? teamActivities 
     : activities?.filter((a) => !selectedCommittee || a.committeeId === selectedCommittee);
 
@@ -319,16 +341,29 @@ export default function ActivitiesPage() {
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
-            {selectedTeamId && selectedTeam ? `Actividades de ${selectedTeam.name}` : "Mis Actividades"}
+            {effectiveTeamId && selectedTeam ? `Actividades de ${selectedTeam.name}` : "Mis Actividades"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {selectedTeamId 
-              ? "Actividades exclusivas de tu equipo de consejería"
-              : "Registra y gestiona tus actividades del comité"}
+            {isRestrictedToTeam
+              ? "Actividades de tu equipo de trabajo"
+              : effectiveTeamId 
+                ? "Actividades exclusivas de tu equipo de consejería"
+                : "Registra y gestiona tus actividades del comité"}
           </p>
         </div>
 
-        {selectedTeamId ? (
+        {isRestrictedToTeam ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              <Users className="h-3 w-3 mr-1" />
+              {selectedTeam?.name || "Tu Equipo"}
+            </Badge>
+            <Button onClick={() => handleOpenDialog()} className="touch-manipulation" data-testid="button-add-activity">
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Actividad
+            </Button>
+          </div>
+        ) : effectiveTeamId ? (
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="text-sm">
               <Users className="h-3 w-3 mr-1" />
@@ -363,7 +398,7 @@ export default function ActivitiesPage() {
               </SelectContent>
             </Select>
 
-            {myTeams && myTeams.length > 0 && (
+            {myTeams && myTeams.length > 0 && !isRestrictedToTeam && (
               <Select value={selectedTeamId || "none"} onValueChange={(val) => setSelectedTeamId(val === "none" ? "" : val)}>
                 <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-team">
                   <SelectValue placeholder="Filtrar por equipo" />

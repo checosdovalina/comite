@@ -44,6 +44,35 @@ async function isUserCounselorOfGeneralCommittee(userId: string): Promise<boolea
   return false;
 }
 
+// Check if user is a team auxiliary in a General Council committee
+// Returns the team ID they're restricted to, or null if they're not restricted
+async function getUserTeamRestriction(userId: string): Promise<{ isRestricted: boolean; teamId: string | null }> {
+  const memberships = await storage.getUserMemberships(userId);
+  const teams = await storage.getUserTeams(userId);
+  
+  // Check if user is in a General Council committee
+  const generalCouncilMembership = memberships.find(m => m.committee?.isGeneral);
+  
+  if (!generalCouncilMembership) {
+    return { isRestricted: false, teamId: null };
+  }
+  
+  // Check if user is a team owner (counselor) - not restricted
+  const ownedTeam = teams.find(t => t.ownerUserId === userId && t.committee?.isGeneral);
+  if (ownedTeam) {
+    return { isRestricted: false, teamId: null };
+  }
+  
+  // Check if user is a member (auxiliary) of a team in General Council - restricted
+  const memberTeam = teams.find(t => t.ownerUserId !== userId && t.committee?.isGeneral);
+  if (memberTeam) {
+    return { isRestricted: true, teamId: memberTeam.id };
+  }
+  
+  // In General Council but not in any team - not restricted
+  return { isRestricted: false, teamId: null };
+}
+
 function isSuperAdmin(req: any): boolean {
   return req.user?.isSuperAdmin === true;
 }
@@ -706,6 +735,14 @@ export async function registerRoutes(
     try {
       const userId = req.user.id;
       const { startDate, endDate } = req.query;
+      
+      // Check if user is a team auxiliary in General Council - restrict to team activities only
+      const restriction = await getUserTeamRestriction(userId);
+      if (restriction.isRestricted && restriction.teamId) {
+        const teamActivities = await storage.getTeamActivities(restriction.teamId, startDate, endDate);
+        return res.json(teamActivities);
+      }
+      
       const activities = await storage.getUserActivities(userId, startDate, endDate);
       res.json(activities);
     } catch (error) {
@@ -743,6 +780,12 @@ export async function registerRoutes(
         return res.status(403).json({ message: "You must be a member of this committee" });
       }
       
+      // Team auxiliaries must create activities for their team only
+      const restriction = await getUserTeamRestriction(userId);
+      if (restriction.isRestricted && restriction.teamId) {
+        data.teamId = restriction.teamId;
+      }
+      
       const validatedData = insertMemberActivitySchema.parse(data);
       const activity = await storage.createMemberActivity(validatedData);
       res.status(201).json(activity);
@@ -765,7 +808,13 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Activity not found" });
       }
       
-      if (existingActivity.userId !== userId) {
+      // Team auxiliaries can only edit activities from their team
+      const restriction = await getUserTeamRestriction(userId);
+      if (restriction.isRestricted && restriction.teamId) {
+        if (existingActivity.teamId !== restriction.teamId) {
+          return res.status(403).json({ message: "You can only edit activities from your team" });
+        }
+      } else if (existingActivity.userId !== userId) {
         return res.status(403).json({ message: "You can only edit your own activities" });
       }
       
@@ -787,7 +836,13 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Activity not found" });
       }
       
-      if (existingActivity.userId !== userId) {
+      // Team auxiliaries can only delete activities from their team
+      const restriction = await getUserTeamRestriction(userId);
+      if (restriction.isRestricted && restriction.teamId) {
+        if (existingActivity.teamId !== restriction.teamId) {
+          return res.status(403).json({ message: "You can only delete activities from your team" });
+        }
+      } else if (existingActivity.userId !== userId) {
         return res.status(403).json({ message: "You can only delete your own activities" });
       }
       
@@ -970,6 +1025,68 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching user teams:", error);
       res.status(500).json({ message: "Failed to fetch your teams" });
+    }
+  });
+
+  // Get user's team context - returns info about whether user is an auxiliary in a General Council team
+  app.get("/api/my-team-context", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const teams = await storage.getUserTeams(userId);
+      const memberships = await storage.getUserMemberships(userId);
+      
+      // Check if user is in a General Council committee
+      const generalCouncilMembership = memberships.find(m => m.committee?.isGeneral);
+      
+      if (!generalCouncilMembership) {
+        // Not in a General Council - no restriction needed
+        return res.json({ 
+          isGeneralCouncilMember: false,
+          isTeamAuxiliary: false,
+          teamId: null,
+          team: null
+        });
+      }
+      
+      // Check if user is a team owner (counselor) or a team member (auxiliary)
+      const ownedTeam = teams.find(t => t.ownerUserId === userId && t.committee?.isGeneral);
+      
+      if (ownedTeam) {
+        // User is a counselor with their own team
+        return res.json({
+          isGeneralCouncilMember: true,
+          isTeamOwner: true,
+          isTeamAuxiliary: false,
+          teamId: ownedTeam.id,
+          team: ownedTeam
+        });
+      }
+      
+      // Check if user is a member (auxiliary) of a team in General Council
+      const memberTeam = teams.find(t => t.ownerUserId !== userId && t.committee?.isGeneral);
+      
+      if (memberTeam) {
+        // User is an auxiliary in a General Council team
+        return res.json({
+          isGeneralCouncilMember: true,
+          isTeamOwner: false,
+          isTeamAuxiliary: true,
+          teamId: memberTeam.id,
+          team: memberTeam
+        });
+      }
+      
+      // In General Council but not in any team
+      return res.json({
+        isGeneralCouncilMember: true,
+        isTeamOwner: false,
+        isTeamAuxiliary: false,
+        teamId: null,
+        team: null
+      });
+    } catch (error) {
+      console.error("Error fetching team context:", error);
+      res.status(500).json({ message: "Failed to fetch team context" });
     }
   });
 
