@@ -62,8 +62,8 @@ export default function AdminPage() {
   });
 
   const updateCommitteeMutation = useMutation({
-    mutationFn: ({ id, isGeneral }: { id: string; isGeneral: boolean }) =>
-      apiRequest("PATCH", `/api/admin/committees/${id}`, { isGeneral }),
+    mutationFn: ({ id, isGeneral, usesShifts }: { id: string; isGeneral?: boolean; usesShifts?: boolean }) =>
+      apiRequest("PATCH", `/api/admin/committees/${id}`, { isGeneral, usesShifts }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/committees"] });
       toast({ title: "Comité actualizado", description: "Los cambios se han guardado." });
@@ -301,7 +301,8 @@ export default function AdminPage() {
                   <TableRow>
                     <TableHead>Nombre</TableHead>
                     <TableHead className="hidden sm:table-cell">Código</TableHead>
-                    <TableHead className="w-[150px]">Comité General</TableHead>
+                    <TableHead className="w-[120px]">General</TableHead>
+                    <TableHead className="w-[120px]">Usa Turnos</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -314,6 +315,11 @@ export default function AdminPage() {
                             <Badge className="bg-amber-500 text-white">
                               <Star className="h-3 w-3 mr-1" />
                               General
+                            </Badge>
+                          )}
+                          {!committee.usesShifts && (
+                            <Badge variant="outline">
+                              Solo Actividades
                             </Badge>
                           )}
                         </div>
@@ -329,6 +335,16 @@ export default function AdminPage() {
                           }
                           disabled={updateCommitteeMutation.isPending}
                           data-testid={`switch-general-${committee.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={committee.usesShifts !== false}
+                          onCheckedChange={(checked) =>
+                            updateCommitteeMutation.mutate({ id: committee.id, usesShifts: checked })
+                          }
+                          disabled={updateCommitteeMutation.isPending}
+                          data-testid={`switch-shifts-${committee.id}`}
                         />
                       </TableCell>
                     </TableRow>

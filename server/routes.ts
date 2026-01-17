@@ -870,7 +870,7 @@ export async function registerRoutes(
       }
       
       const { id } = req.params;
-      const { isGeneral } = req.body;
+      const { isGeneral, usesShifts } = req.body;
       
       if (isGeneral === true) {
         const allCommittees = await storage.getAllCommittees();
@@ -882,7 +882,11 @@ export async function registerRoutes(
         }
       }
       
-      const committee = await storage.updateCommittee(id, { isGeneral });
+      const updateData: { isGeneral?: boolean; usesShifts?: boolean } = {};
+      if (isGeneral !== undefined) updateData.isGeneral = isGeneral;
+      if (usesShifts !== undefined) updateData.usesShifts = usesShifts;
+      
+      const committee = await storage.updateCommittee(id, updateData);
       if (!committee) {
         return res.status(404).json({ message: "Committee not found" });
       }
