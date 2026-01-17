@@ -109,6 +109,7 @@ export default function CalendarPage() {
   const [filterUser, setFilterUser] = useState<string>("all");
   const [filterActivityType, setFilterActivityType] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -1196,46 +1197,60 @@ export default function CalendarPage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="activities" className="flex-1 overflow-y-auto space-y-3 mt-4">
+              <TabsContent value="activities" className="flex-1 overflow-y-auto space-y-2 mt-4">
                 {getFilteredActivitiesForDate(selectedDate).length > 0 ? (
                   getFilteredActivitiesForDate(selectedDate).map((activity) => {
                     const config = activityTypeConfig[activity.activityType] || activityTypeConfig.other;
                     const ActivityIcon = config.icon;
+                    const isExpanded = expandedActivityId === activity.id;
                     return (
-                      <div key={activity.id} className={`p-4 rounded-md ${config.color}`}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <ActivityIcon className="h-5 w-5 flex-shrink-0" />
-                          <span className="font-semibold">{activity.title}</span>
-                          <Badge variant="outline" className="ml-auto">{config.label}</Badge>
-                        </div>
-                        {activity.description && (
-                          <p className="text-sm mb-2 opacity-90">{activity.description}</p>
-                        )}
-                        <div className="flex flex-wrap gap-3 text-xs opacity-75">
+                      <div 
+                        key={activity.id} 
+                        className={`rounded-md ${config.color} cursor-pointer transition-all duration-200`}
+                        onClick={() => setExpandedActivityId(isExpanded ? null : activity.id)}
+                        data-testid={`activity-card-${activity.id}`}
+                      >
+                        <div className="p-3 flex items-center gap-2">
+                          <ActivityIcon className="h-4 w-4 flex-shrink-0" />
+                          <span className="font-medium text-sm flex-1 truncate">{activity.title}</span>
                           {activity.startTime && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {activity.startTime}
-                              {activity.endTime && ` - ${activity.endTime}`}
-                            </div>
+                            <span className="text-xs opacity-75">{activity.startTime}</span>
                           )}
-                          {activity.userName && (
-                            <div className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {activity.userName}
-                            </div>
-                          )}
-                          {activity.location && (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {activity.location}
-                            </div>
-                          )}
+                          <Badge variant="outline" className="text-xs">{config.label}</Badge>
+                          <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                         </div>
-                        {activity.notes && (
-                          <div className="mt-3 pt-3 border-t border-current/20">
-                            <p className="text-xs font-medium mb-1">Notas:</p>
-                            <p className="text-sm opacity-90 whitespace-pre-wrap">{activity.notes}</p>
+                        {isExpanded && (
+                          <div className="px-3 pb-3 pt-0 border-t border-current/10">
+                            {activity.description && (
+                              <p className="text-sm mb-2 opacity-90 mt-2">{activity.description}</p>
+                            )}
+                            <div className="flex flex-wrap gap-3 text-xs opacity-75 mt-2">
+                              {activity.startTime && (
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {activity.startTime}
+                                  {activity.endTime && ` - ${activity.endTime}`}
+                                </div>
+                              )}
+                              {activity.userName && (
+                                <div className="flex items-center gap-1">
+                                  <User className="h-3 w-3" />
+                                  {activity.userName}
+                                </div>
+                              )}
+                              {activity.location && (
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {activity.location}
+                                </div>
+                              )}
+                            </div>
+                            {activity.notes && (
+                              <div className="mt-3 pt-3 border-t border-current/20">
+                                <p className="text-xs font-medium mb-1">Notas:</p>
+                                <p className="text-sm opacity-90 whitespace-pre-wrap">{activity.notes}</p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
