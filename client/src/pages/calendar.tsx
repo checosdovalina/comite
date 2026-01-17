@@ -86,6 +86,15 @@ interface CalendarActivity extends MemberActivity {
   userName?: string;
 }
 
+// Helper to ensure URLs have proper protocol
+const ensureAbsoluteUrl = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  return `https://${url}`;
+};
+
 const activityTypeConfig: Record<string, { icon: typeof Users; color: string; label: string }> = {
   meeting: { icon: Users, color: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300", label: "Reunión" },
   visit: { icon: MapPin, color: "bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300", label: "Visita" },
@@ -1263,7 +1272,7 @@ export default function CalendarPage() {
                                   asChild
                                 >
                                   <a
-                                    href={activity.meetingUrl}
+                                    href={ensureAbsoluteUrl(activity.meetingUrl)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
