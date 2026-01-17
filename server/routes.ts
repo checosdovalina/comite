@@ -819,6 +819,102 @@ export async function registerRoutes(
     }
   });
 
+  // Activity Attendance Routes
+  app.get("/api/activities/:activityId/attendances", isAuthenticated, async (req: any, res) => {
+    try {
+      const { activityId } = req.params;
+      const activity = await storage.getMemberActivity(activityId);
+      if (!activity) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      const attendances = await storage.getActivityAttendances(activityId);
+      res.json(attendances);
+    } catch (error) {
+      console.error("Error fetching activity attendances:", error);
+      res.status(500).json({ message: "Failed to fetch activity attendances" });
+    }
+  });
+
+  app.post("/api/activities/:activityId/attendances", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { activityId } = req.params;
+      
+      const activity = await storage.getMemberActivity(activityId);
+      if (!activity) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      const isMember = await isUserMemberOfCommittee(userId, activity.committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this committee" });
+      }
+      
+      const existing = await storage.getActivityAttendance(activityId, userId);
+      if (existing) {
+        return res.status(400).json({ message: "You are already registered for this activity" });
+      }
+      
+      const attendance = await storage.createActivityAttendance({
+        activityId,
+        userId,
+        status: "registered",
+      });
+      
+      res.status(201).json(attendance);
+    } catch (error) {
+      console.error("Error registering for activity:", error);
+      res.status(500).json({ message: "Failed to register for activity" });
+    }
+  });
+
+  app.delete("/api/activity-attendances/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      
+      const attendance = await storage.getActivityAttendanceById(id);
+      
+      if (!attendance) {
+        return res.status(404).json({ message: "Attendance not found" });
+      }
+      
+      if (attendance.userId !== userId) {
+        return res.status(403).json({ message: "You can only cancel your own attendance" });
+      }
+      
+      await storage.deleteActivityAttendance(id);
+      res.json({ message: "Attendance cancelled" });
+    } catch (error) {
+      console.error("Error cancelling activity attendance:", error);
+      res.status(500).json({ message: "Failed to cancel attendance" });
+    }
+  });
+
+  app.patch("/api/activity-attendances/:id/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      
+      const attendance = await storage.getActivityAttendanceById(id);
+      
+      if (!attendance) {
+        return res.status(404).json({ message: "Attendance not found" });
+      }
+      
+      if (attendance.userId !== userId) {
+        return res.status(403).json({ message: "You can only confirm your own attendance" });
+      }
+      
+      const updated = await storage.updateActivityAttendanceStatus(id, "confirmed");
+      res.json(updated);
+    } catch (error) {
+      console.error("Error confirming activity attendance:", error);
+      res.status(500).json({ message: "Failed to confirm attendance" });
+    }
+  });
+
   // Notification Preferences Routes
   app.get("/api/notification-preferences", isAuthenticated, async (req: any, res) => {
     try {

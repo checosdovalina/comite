@@ -82,6 +82,7 @@ export interface IStorage {
   
   getActivityAttendances(activityId: string): Promise<(ActivityAttendance & { user?: User })[]>;
   getActivityAttendance(activityId: string, userId: string): Promise<ActivityAttendance | undefined>;
+  getActivityAttendanceById(id: string): Promise<ActivityAttendance | undefined>;
   createActivityAttendance(data: InsertActivityAttendance): Promise<ActivityAttendance>;
   updateActivityAttendanceStatus(id: string, status: string): Promise<ActivityAttendance | undefined>;
   deleteActivityAttendance(id: string): Promise<boolean>;
@@ -633,6 +634,14 @@ export class DatabaseStorage implements IStorage {
           eq(activityAttendances.userId, userId)
         )
       );
+    return attendance;
+  }
+
+  async getActivityAttendanceById(id: string): Promise<ActivityAttendance | undefined> {
+    const [attendance] = await db
+      .select()
+      .from(activityAttendances)
+      .where(eq(activityAttendances.id, id));
     return attendance;
   }
 
