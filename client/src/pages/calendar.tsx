@@ -1214,6 +1214,9 @@ export default function CalendarPage() {
                         <div className="p-3 flex items-center gap-2">
                           <ActivityIcon className="h-4 w-4 flex-shrink-0" />
                           <span className="font-medium text-sm flex-1 truncate">{activity.title}</span>
+                          {activity.meetingUrl && (
+                            <ExternalLink className="h-3 w-3 opacity-60" />
+                          )}
                           {activity.startTime && (
                             <span className="text-xs opacity-75">{activity.startTime}</span>
                           )}
@@ -1254,17 +1257,22 @@ export default function CalendarPage() {
                             )}
                             {activity.meetingUrl && (
                               <div className="mt-3 pt-3 border-t border-current/20">
-                                <a
-                                  href={activity.meetingUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                                  onClick={(e) => e.stopPropagation()}
-                                  data-testid={`link-meeting-${activity.id}`}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
                                 >
-                                  <ExternalLink className="h-4 w-4" />
-                                  Abrir enlace
-                                </a>
+                                  <a
+                                    href={activity.meetingUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    data-testid={`link-meeting-${activity.id}`}
+                                  >
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Abrir enlace
+                                  </a>
+                                </Button>
                               </div>
                             )}
                           </div>
