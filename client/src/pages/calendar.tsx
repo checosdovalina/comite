@@ -1232,6 +1232,12 @@ export default function CalendarPage() {
                             </div>
                           )}
                         </div>
+                        {activity.notes && (
+                          <div className="mt-3 pt-3 border-t border-current/20">
+                            <p className="text-xs font-medium mb-1">Notas:</p>
+                            <p className="text-sm opacity-90 whitespace-pre-wrap">{activity.notes}</p>
+                          </div>
+                        )}
                       </div>
                     );
                   })
