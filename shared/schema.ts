@@ -112,6 +112,7 @@ export const memberActivities = pgTable("member_activities", {
   isCompleted: boolean("is_completed").notNull().default(false),
   isVisibleOnCalendar: boolean("is_visible_on_calendar").notNull().default(true),
   notes: text("notes"),
+  meetingUrl: text("meeting_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

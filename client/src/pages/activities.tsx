@@ -80,6 +80,7 @@ export default function ActivitiesPage() {
     endTime: "",
     location: "",
     notes: "",
+    meetingUrl: "",
   });
 
   const startDate = format(startOfMonth(currentDate), "yyyy-MM-dd");
@@ -171,6 +172,7 @@ export default function ActivitiesPage() {
       endTime: "",
       location: "",
       notes: "",
+      meetingUrl: "",
     });
   };
 
@@ -186,6 +188,7 @@ export default function ActivitiesPage() {
         endTime: activity.endTime || "",
         location: activity.location || "",
         notes: activity.notes || "",
+        meetingUrl: activity.meetingUrl || "",
       });
       setSelectedCommittee(activity.committeeId);
     } else {
@@ -593,6 +596,17 @@ export default function ActivitiesPage() {
                 placeholder="Notas adicionales"
                 rows={2}
                 data-testid="input-notes"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="meetingUrl">Liga/Enlace (Zoom, Meet, etc.)</Label>
+              <Input
+                id="meetingUrl"
+                value={formData.meetingUrl}
+                onChange={(e) => setFormData({ ...formData, meetingUrl: e.target.value })}
+                placeholder="https://zoom.us/j/..."
+                data-testid="input-meeting-url"
               />
             </div>
           </div>

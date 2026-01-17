@@ -42,6 +42,7 @@ import {
   MoreHorizontal,
   Filter,
   User,
+  ExternalLink,
 } from "lucide-react";
 import {
   format,
@@ -1249,6 +1250,21 @@ export default function CalendarPage() {
                               <div className="mt-3 pt-3 border-t border-current/20">
                                 <p className="text-xs font-medium mb-1">Notas:</p>
                                 <p className="text-sm opacity-90 whitespace-pre-wrap">{activity.notes}</p>
+                              </div>
+                            )}
+                            {activity.meetingUrl && (
+                              <div className="mt-3 pt-3 border-t border-current/20">
+                                <a
+                                  href={activity.meetingUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                  onClick={(e) => e.stopPropagation()}
+                                  data-testid={`link-meeting-${activity.id}`}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                  Abrir enlace
+                                </a>
                               </div>
                             )}
                           </div>
