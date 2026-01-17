@@ -7,6 +7,8 @@ import {
   notificationPreferences,
   roles,
   activityAttendances,
+  counselorTeams,
+  counselorTeamMembers,
   type Committee,
   type InsertCommittee,
   type CommitteeMember,
@@ -23,6 +25,10 @@ import {
   type InsertRole,
   type ActivityAttendance,
   type InsertActivityAttendance,
+  type CounselorTeam,
+  type InsertCounselorTeam,
+  type CounselorTeamMember,
+  type InsertCounselorTeamMember,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -86,6 +92,22 @@ export interface IStorage {
   createActivityAttendance(data: InsertActivityAttendance): Promise<ActivityAttendance>;
   updateActivityAttendanceStatus(id: string, status: string): Promise<ActivityAttendance | undefined>;
   deleteActivityAttendance(id: string): Promise<boolean>;
+  
+  // Counselor Teams
+  getCounselorTeams(committeeId: string): Promise<(CounselorTeam & { owner?: User; memberCount?: number })[]>;
+  getCounselorTeam(id: string): Promise<CounselorTeam | undefined>;
+  getCounselorTeamByOwner(ownerUserId: string, committeeId: string): Promise<CounselorTeam | undefined>;
+  getUserTeams(userId: string): Promise<(CounselorTeam & { committee?: Committee })[]>;
+  createCounselorTeam(data: InsertCounselorTeam): Promise<CounselorTeam>;
+  updateCounselorTeam(id: string, data: Partial<InsertCounselorTeam>): Promise<CounselorTeam | undefined>;
+  deleteCounselorTeam(id: string): Promise<boolean>;
+  
+  // Counselor Team Members
+  getCounselorTeamMembers(teamId: string): Promise<(CounselorTeamMember & { user?: User })[]>;
+  getCounselorTeamMember(teamId: string, userId: string): Promise<CounselorTeamMember | undefined>;
+  createCounselorTeamMember(data: InsertCounselorTeamMember): Promise<CounselorTeamMember>;
+  deleteCounselorTeamMember(teamId: string, userId: string): Promise<boolean>;
+  getTeamActivities(teamId: string, startDate?: string, endDate?: string): Promise<(MemberActivity & { userName?: string })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -666,6 +688,176 @@ export class DatabaseStorage implements IStorage {
   async deleteActivityAttendance(id: string): Promise<boolean> {
     const result = await db.delete(activityAttendances).where(eq(activityAttendances.id, id));
     return true;
+  }
+
+  // Counselor Teams
+  async getCounselorTeams(committeeId: string): Promise<(CounselorTeam & { owner?: User; memberCount?: number })[]> {
+    const teams = await db
+      .select()
+      .from(counselorTeams)
+      .where(and(
+        eq(counselorTeams.committeeId, committeeId),
+        eq(counselorTeams.isActive, true)
+      ));
+    
+    const teamsWithDetails = await Promise.all(
+      teams.map(async (team) => {
+        const [owner] = await db.select().from(users).where(eq(users.id, team.ownerUserId));
+        const members = await db.select().from(counselorTeamMembers).where(eq(counselorTeamMembers.teamId, team.id));
+        return {
+          ...team,
+          owner,
+          memberCount: members.length,
+        };
+      })
+    );
+    return teamsWithDetails;
+  }
+
+  async getCounselorTeam(id: string): Promise<CounselorTeam | undefined> {
+    const [team] = await db.select().from(counselorTeams).where(eq(counselorTeams.id, id));
+    return team;
+  }
+
+  async getCounselorTeamByOwner(ownerUserId: string, committeeId: string): Promise<CounselorTeam | undefined> {
+    const [team] = await db
+      .select()
+      .from(counselorTeams)
+      .where(and(
+        eq(counselorTeams.ownerUserId, ownerUserId),
+        eq(counselorTeams.committeeId, committeeId),
+        eq(counselorTeams.isActive, true)
+      ));
+    return team;
+  }
+
+  async getUserTeams(userId: string): Promise<(CounselorTeam & { committee?: Committee })[]> {
+    // Teams where user is owner
+    const ownedTeams = await db
+      .select()
+      .from(counselorTeams)
+      .where(and(
+        eq(counselorTeams.ownerUserId, userId),
+        eq(counselorTeams.isActive, true)
+      ));
+    
+    // Teams where user is a member
+    const memberTeams = await db
+      .select({
+        team: counselorTeams,
+      })
+      .from(counselorTeamMembers)
+      .innerJoin(counselorTeams, eq(counselorTeamMembers.teamId, counselorTeams.id))
+      .where(and(
+        eq(counselorTeamMembers.userId, userId),
+        eq(counselorTeams.isActive, true)
+      ));
+    
+    const allTeams = [...ownedTeams, ...memberTeams.map(t => t.team)];
+    const uniqueTeams = allTeams.filter((team, index, self) => 
+      index === self.findIndex(t => t.id === team.id)
+    );
+    
+    const teamsWithCommittee = await Promise.all(
+      uniqueTeams.map(async (team) => {
+        const [committee] = await db.select().from(committees).where(eq(committees.id, team.committeeId));
+        return { ...team, committee };
+      })
+    );
+    return teamsWithCommittee;
+  }
+
+  async createCounselorTeam(data: InsertCounselorTeam): Promise<CounselorTeam> {
+    const [team] = await db.insert(counselorTeams).values(data).returning();
+    return team;
+  }
+
+  async updateCounselorTeam(id: string, data: Partial<InsertCounselorTeam>): Promise<CounselorTeam | undefined> {
+    const [team] = await db.update(counselorTeams).set(data).where(eq(counselorTeams.id, id)).returning();
+    return team;
+  }
+
+  async deleteCounselorTeam(id: string): Promise<boolean> {
+    await db.update(counselorTeams).set({ isActive: false }).where(eq(counselorTeams.id, id));
+    return true;
+  }
+
+  // Counselor Team Members
+  async getCounselorTeamMembers(teamId: string): Promise<(CounselorTeamMember & { user?: User })[]> {
+    const members = await db
+      .select()
+      .from(counselorTeamMembers)
+      .where(eq(counselorTeamMembers.teamId, teamId));
+    
+    const membersWithUsers = await Promise.all(
+      members.map(async (member) => {
+        const [user] = await db.select().from(users).where(eq(users.id, member.userId));
+        return { ...member, user };
+      })
+    );
+    return membersWithUsers;
+  }
+
+  async getCounselorTeamMember(teamId: string, userId: string): Promise<CounselorTeamMember | undefined> {
+    const [member] = await db
+      .select()
+      .from(counselorTeamMembers)
+      .where(and(
+        eq(counselorTeamMembers.teamId, teamId),
+        eq(counselorTeamMembers.userId, userId)
+      ));
+    return member;
+  }
+
+  async createCounselorTeamMember(data: InsertCounselorTeamMember): Promise<CounselorTeamMember> {
+    const [member] = await db.insert(counselorTeamMembers).values(data).returning();
+    return member;
+  }
+
+  async deleteCounselorTeamMember(teamId: string, userId: string): Promise<boolean> {
+    await db.delete(counselorTeamMembers).where(and(
+      eq(counselorTeamMembers.teamId, teamId),
+      eq(counselorTeamMembers.userId, userId)
+    ));
+    return true;
+  }
+
+  async getTeamActivities(teamId: string, startDate?: string, endDate?: string): Promise<(MemberActivity & { userName?: string })[]> {
+    let query = db.select().from(memberActivities).where(eq(memberActivities.teamId, teamId));
+    
+    if (startDate && endDate) {
+      const activities = await db
+        .select()
+        .from(memberActivities)
+        .where(and(
+          eq(memberActivities.teamId, teamId),
+          gte(memberActivities.activityDate, startDate),
+          lte(memberActivities.activityDate, endDate)
+        ));
+      
+      const activitiesWithUser = await Promise.all(
+        activities.map(async (activity) => {
+          const [user] = await db.select().from(users).where(eq(users.id, activity.userId));
+          return {
+            ...activity,
+            userName: user?.firstName || user?.email,
+          };
+        })
+      );
+      return activitiesWithUser;
+    }
+    
+    const activities = await db.select().from(memberActivities).where(eq(memberActivities.teamId, teamId));
+    const activitiesWithUser = await Promise.all(
+      activities.map(async (activity) => {
+        const [user] = await db.select().from(users).where(eq(users.id, activity.userId));
+        return {
+          ...activity,
+          userName: user?.firstName || user?.email,
+        };
+      })
+    );
+    return activitiesWithUser;
   }
 }
 
