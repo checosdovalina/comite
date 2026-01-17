@@ -59,11 +59,13 @@ export async function registerRoutes(
   app.get("/api/public/committees", async (req, res) => {
     try {
       const allCommittees = await storage.getAllCommittees();
-      const publicData = allCommittees.map(c => ({
-        id: c.id,
-        name: c.name,
-        code: c.code,
-      }));
+      const publicData = allCommittees
+        .filter(c => !c.isRestricted)
+        .map(c => ({
+          id: c.id,
+          name: c.name,
+          code: c.code,
+        }));
       res.json(publicData);
     } catch (error) {
       console.error("Error fetching public committees:", error);
@@ -149,6 +151,10 @@ export async function registerRoutes(
       const committee = await storage.getCommittee(committeeId);
       if (!committee) {
         return res.status(404).json({ message: "Comité no encontrado" });
+      }
+      
+      if (committee.isRestricted) {
+        return res.status(403).json({ message: "Este comité es restringido. Solo un administrador puede agregar miembros." });
       }
       
       const isMember = await isUserMemberOfCommittee(userId, committeeId);
@@ -870,7 +876,7 @@ export async function registerRoutes(
       }
       
       const { id } = req.params;
-      const { isGeneral, usesShifts } = req.body;
+      const { isGeneral, usesShifts, isRestricted } = req.body;
       
       if (isGeneral === true) {
         const allCommittees = await storage.getAllCommittees();
@@ -882,9 +888,10 @@ export async function registerRoutes(
         }
       }
       
-      const updateData: { isGeneral?: boolean; usesShifts?: boolean } = {};
+      const updateData: { isGeneral?: boolean; usesShifts?: boolean; isRestricted?: boolean } = {};
       if (isGeneral !== undefined) updateData.isGeneral = isGeneral;
       if (usesShifts !== undefined) updateData.usesShifts = usesShifts;
+      if (isRestricted !== undefined) updateData.isRestricted = isRestricted;
       
       const committee = await storage.updateCommittee(id, updateData);
       if (!committee) {

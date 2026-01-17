@@ -18,6 +18,7 @@ export const committees = pgTable("committees", {
   isActive: boolean("is_active").notNull().default(true),
   isGeneral: boolean("is_general").notNull().default(false),
   usesShifts: boolean("uses_shifts").notNull().default(true),
+  isRestricted: boolean("is_restricted").notNull().default(false),
   workingDays: text("working_days").array().notNull().default(sql`ARRAY['monday','tuesday','wednesday','thursday','friday']`),
   morningStart: text("morning_start").notNull().default("09:00"),
   morningEnd: text("morning_end").notNull().default("13:00"),

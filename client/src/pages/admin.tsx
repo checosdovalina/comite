@@ -62,8 +62,8 @@ export default function AdminPage() {
   });
 
   const updateCommitteeMutation = useMutation({
-    mutationFn: ({ id, isGeneral, usesShifts }: { id: string; isGeneral?: boolean; usesShifts?: boolean }) =>
-      apiRequest("PATCH", `/api/admin/committees/${id}`, { isGeneral, usesShifts }),
+    mutationFn: ({ id, isGeneral, usesShifts, isRestricted }: { id: string; isGeneral?: boolean; usesShifts?: boolean; isRestricted?: boolean }) =>
+      apiRequest("PATCH", `/api/admin/committees/${id}`, { isGeneral, usesShifts, isRestricted }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/committees"] });
       toast({ title: "Comité actualizado", description: "Los cambios se han guardado." });
@@ -301,8 +301,9 @@ export default function AdminPage() {
                   <TableRow>
                     <TableHead>Nombre</TableHead>
                     <TableHead className="hidden sm:table-cell">Código</TableHead>
-                    <TableHead className="w-[120px]">General</TableHead>
-                    <TableHead className="w-[120px]">Usa Turnos</TableHead>
+                    <TableHead className="w-[100px]">General</TableHead>
+                    <TableHead className="w-[100px]">Turnos</TableHead>
+                    <TableHead className="w-[100px]">Restringido</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -320,6 +321,11 @@ export default function AdminPage() {
                           {!committee.usesShifts && (
                             <Badge variant="outline">
                               Solo Actividades
+                            </Badge>
+                          )}
+                          {committee.isRestricted && (
+                            <Badge variant="destructive">
+                              Restringido
                             </Badge>
                           )}
                         </div>
@@ -345,6 +351,16 @@ export default function AdminPage() {
                           }
                           disabled={updateCommitteeMutation.isPending}
                           data-testid={`switch-shifts-${committee.id}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={committee.isRestricted === true}
+                          onCheckedChange={(checked) =>
+                            updateCommitteeMutation.mutate({ id: committee.id, isRestricted: checked })
+                          }
+                          disabled={updateCommitteeMutation.isPending}
+                          data-testid={`switch-restricted-${committee.id}`}
                         />
                       </TableCell>
                     </TableRow>
