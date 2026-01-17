@@ -7,7 +7,14 @@ export * from "./models/auth";
 
 export const systemRoleEnum = pgEnum("system_role", ["super_admin", "user"]);
 export const shiftEnum = pgEnum("shift", ["morning", "afternoon", "full_day"]);
-export const leadershipRoleEnum = pgEnum("leadership_role", ["president", "secretary", "counselor", "none"]);
+export const leadershipRoleEnum = pgEnum("leadership_role", [
+  "counselor_president",   // Consejero Presidente (for both district and general)
+  "counselor_secretary",   // Consejero Secretario (district only)
+  "counselor",             // Consejero (for both)
+  "secretary",             // Secretario (general council only)
+  "auxiliary",             // Auxiliar (district only, via direct membership)
+  "none"                   // No leadership role
+]);
 
 export const committees = pgTable("committees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
