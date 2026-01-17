@@ -6,6 +6,7 @@ import {
   memberActivities,
   notificationPreferences,
   roles,
+  activityAttendances,
   type Committee,
   type InsertCommittee,
   type CommitteeMember,
@@ -20,6 +21,8 @@ import {
   type InsertNotificationPreferences,
   type Role,
   type InsertRole,
+  type ActivityAttendance,
+  type InsertActivityAttendance,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -76,6 +79,12 @@ export interface IStorage {
   getAllUsersWithPushEnabled(): Promise<NotificationPreferences[]>;
   getUserAttendancesForNotification(userId: string, minutesBefore: number): Promise<Attendance[]>;
   getUserActivitiesForNotification(userId: string, minutesBefore: number): Promise<MemberActivity[]>;
+  
+  getActivityAttendances(activityId: string): Promise<(ActivityAttendance & { user?: User })[]>;
+  getActivityAttendance(activityId: string, userId: string): Promise<ActivityAttendance | undefined>;
+  createActivityAttendance(data: InsertActivityAttendance): Promise<ActivityAttendance>;
+  updateActivityAttendanceStatus(id: string, status: string): Promise<ActivityAttendance | undefined>;
+  deleteActivityAttendance(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -596,6 +605,58 @@ export class DatabaseStorage implements IStorage {
       activityDate.setHours(hours, mins, 0, 0);
       return activityDate >= windowStart && activityDate <= windowEnd;
     });
+  }
+
+  async getActivityAttendances(activityId: string): Promise<(ActivityAttendance & { user?: User })[]> {
+    const attendanceList = await db
+      .select()
+      .from(activityAttendances)
+      .where(eq(activityAttendances.activityId, activityId));
+    
+    const attendancesWithUsers = await Promise.all(
+      attendanceList.map(async (attendance) => {
+        const [user] = await db.select().from(users).where(eq(users.id, attendance.userId));
+        return { ...attendance, user };
+      })
+    );
+    
+    return attendancesWithUsers;
+  }
+
+  async getActivityAttendance(activityId: string, userId: string): Promise<ActivityAttendance | undefined> {
+    const [attendance] = await db
+      .select()
+      .from(activityAttendances)
+      .where(
+        and(
+          eq(activityAttendances.activityId, activityId),
+          eq(activityAttendances.userId, userId)
+        )
+      );
+    return attendance;
+  }
+
+  async createActivityAttendance(data: InsertActivityAttendance): Promise<ActivityAttendance> {
+    const [attendance] = await db.insert(activityAttendances).values(data).returning();
+    return attendance;
+  }
+
+  async updateActivityAttendanceStatus(id: string, status: string): Promise<ActivityAttendance | undefined> {
+    const updateData: any = { status };
+    if (status === "confirmed") {
+      updateData.confirmedAt = new Date();
+    }
+    const [attendance] = await db
+      .update(activityAttendances)
+      .set(updateData)
+      .where(eq(activityAttendances.id, id))
+      .returning();
+    return attendance;
+  }
+
+  async deleteActivityAttendance(id: string): Promise<boolean> {
+    const result = await db.delete(activityAttendances).where(eq(activityAttendances.id, id));
+    return true;
   }
 }
 
