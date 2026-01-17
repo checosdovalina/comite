@@ -24,6 +24,7 @@ import ActivitiesPage from "@/pages/activities";
 import ProfilePage from "@/pages/profile";
 import SettingsPage from "@/pages/settings";
 import AdminPage from "@/pages/admin";
+import TeamPage from "@/pages/team";
 import NotFound from "@/pages/not-found";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 
@@ -56,6 +57,7 @@ function AuthenticatedRouter() {
               <Route path="/profile" component={ProfilePage} />
               <Route path="/settings" component={SettingsPage} />
               <Route path="/admin" component={AdminPage} />
+              <Route path="/team" component={TeamPage} />
               <Route component={NotFound} />
             </Switch>
           </main>

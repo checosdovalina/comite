@@ -25,6 +25,7 @@ import {
   FileSpreadsheet,
   ListTodo,
   Shield,
+  UsersRound,
 } from "lucide-react";
 
 const mainNavItems = [
@@ -52,6 +53,11 @@ const mainNavItems = [
     title: "Actividades",
     url: "/activities",
     icon: ListTodo,
+  },
+  {
+    title: "Mi Equipo",
+    url: "/team",
+    icon: UsersRound,
   },
 ];
 
