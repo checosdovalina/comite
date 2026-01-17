@@ -530,10 +530,12 @@ export default function CalendarPage() {
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
-            Registrar Turno
+            {selectedCommitteeData?.usesShifts !== false ? "Registrar Turno" : "Calendario de Actividades"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Selecciona una fecha para registrar tu turno
+            {selectedCommitteeData?.usesShifts !== false 
+              ? "Selecciona una fecha para registrar tu turno"
+              : "Consulta las actividades programadas"}
           </p>
         </div>
 
@@ -1050,12 +1052,14 @@ export default function CalendarPage() {
           </DialogHeader>
 
           {selectedDate && (
-            <Tabs defaultValue="shifts" className="flex-1 overflow-hidden flex flex-col">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="shifts" data-testid="tab-shifts">
-                  <Clock className="h-4 w-4 mr-1" />
-                  Turnos
-                </TabsTrigger>
+            <Tabs defaultValue={selectedCommitteeData?.usesShifts !== false ? "shifts" : "activities"} className="flex-1 overflow-hidden flex flex-col">
+              <TabsList className={`grid w-full ${selectedCommitteeData?.usesShifts !== false ? "grid-cols-2" : "grid-cols-1"}`}>
+                {selectedCommitteeData?.usesShifts !== false && (
+                  <TabsTrigger value="shifts" data-testid="tab-shifts">
+                    <Clock className="h-4 w-4 mr-1" />
+                    Turnos
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="activities" data-testid="tab-activities">
                   <CalendarDays className="h-4 w-4 mr-1" />
                   Actividades
