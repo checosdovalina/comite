@@ -921,6 +921,262 @@ export async function registerRoutes(
     }
   });
 
+  // Counselor Teams Routes
+  app.get("/api/committees/:committeeId/teams", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { committeeId } = req.params;
+      
+      const isMember = await isUserMemberOfCommittee(userId, committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this committee" });
+      }
+      
+      const teams = await storage.getCounselorTeams(committeeId);
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching counselor teams:", error);
+      res.status(500).json({ message: "Failed to fetch counselor teams" });
+    }
+  });
+
+  app.get("/api/teams/:teamId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId } = req.params;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      const isMember = await isUserMemberOfCommittee(userId, team.committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this committee" });
+      }
+      
+      res.json(team);
+    } catch (error) {
+      console.error("Error fetching team:", error);
+      res.status(500).json({ message: "Failed to fetch team" });
+    }
+  });
+
+  app.get("/api/my-teams", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const teams = await storage.getUserTeams(userId);
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching user teams:", error);
+      res.status(500).json({ message: "Failed to fetch your teams" });
+    }
+  });
+
+  app.post("/api/committees/:committeeId/teams", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { committeeId } = req.params;
+      
+      // Verify user is a counselor in this committee
+      const membership = await storage.getUserMemberships(userId);
+      const committeeMembership = membership.find(m => m.committeeId === committeeId && m.leadershipRole === "counselor");
+      
+      if (!committeeMembership) {
+        return res.status(403).json({ message: "Only counselors can create teams" });
+      }
+      
+      // Check if user already has a team in this committee
+      const existingTeam = await storage.getCounselorTeamByOwner(userId, committeeId);
+      if (existingTeam) {
+        return res.status(400).json({ message: "You already have a team in this committee" });
+      }
+      
+      const { name, description } = req.body;
+      
+      const team = await storage.createCounselorTeam({
+        committeeId,
+        ownerUserId: userId,
+        name: name || "Mi Equipo",
+        description,
+        isActive: true,
+      });
+      
+      res.status(201).json(team);
+    } catch (error) {
+      console.error("Error creating team:", error);
+      res.status(500).json({ message: "Failed to create team" });
+    }
+  });
+
+  app.patch("/api/teams/:teamId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId } = req.params;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      if (team.ownerUserId !== userId) {
+        return res.status(403).json({ message: "Only the team owner can update the team" });
+      }
+      
+      const { name, description } = req.body;
+      const updated = await storage.updateCounselorTeam(teamId, { name, description });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating team:", error);
+      res.status(500).json({ message: "Failed to update team" });
+    }
+  });
+
+  app.delete("/api/teams/:teamId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId } = req.params;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      if (team.ownerUserId !== userId) {
+        return res.status(403).json({ message: "Only the team owner can delete the team" });
+      }
+      
+      await storage.deleteCounselorTeam(teamId);
+      res.json({ message: "Team deleted" });
+    } catch (error) {
+      console.error("Error deleting team:", error);
+      res.status(500).json({ message: "Failed to delete team" });
+    }
+  });
+
+  // Team Members Routes
+  app.get("/api/teams/:teamId/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId } = req.params;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      // Allow access if user is team owner or team member
+      const isOwner = team.ownerUserId === userId;
+      const isMember = await storage.getCounselorTeamMember(teamId, userId);
+      
+      if (!isOwner && !isMember) {
+        return res.status(403).json({ message: "You are not a member of this team" });
+      }
+      
+      const members = await storage.getCounselorTeamMembers(teamId);
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching team members:", error);
+      res.status(500).json({ message: "Failed to fetch team members" });
+    }
+  });
+
+  app.post("/api/teams/:teamId/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId } = req.params;
+      const { email } = req.body;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      // Only team owner can add members
+      if (team.ownerUserId !== userId) {
+        return res.status(403).json({ message: "Only the team owner can add members" });
+      }
+      
+      // Find user by email
+      const userToAdd = await storage.getUserByEmail(email);
+      if (!userToAdd) {
+        return res.status(404).json({ message: "User not found with that email" });
+      }
+      
+      // Check if user is already a member
+      const existingMember = await storage.getCounselorTeamMember(teamId, userToAdd.id);
+      if (existingMember) {
+        return res.status(400).json({ message: "User is already a team member" });
+      }
+      
+      const member = await storage.createCounselorTeamMember({
+        teamId,
+        userId: userToAdd.id,
+        role: "auxiliary",
+      });
+      
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error adding team member:", error);
+      res.status(500).json({ message: "Failed to add team member" });
+    }
+  });
+
+  app.delete("/api/teams/:teamId/members/:memberId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId, memberId } = req.params;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      // Only team owner can remove members
+      if (team.ownerUserId !== userId) {
+        return res.status(403).json({ message: "Only the team owner can remove members" });
+      }
+      
+      await storage.deleteCounselorTeamMember(teamId, memberId);
+      res.json({ message: "Member removed" });
+    } catch (error) {
+      console.error("Error removing team member:", error);
+      res.status(500).json({ message: "Failed to remove team member" });
+    }
+  });
+
+  // Team Activities Routes
+  app.get("/api/teams/:teamId/activities", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId } = req.params;
+      const { startDate, endDate } = req.query;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      // Allow access if user is team owner or team member
+      const isOwner = team.ownerUserId === userId;
+      const isMember = await storage.getCounselorTeamMember(teamId, userId);
+      
+      if (!isOwner && !isMember) {
+        return res.status(403).json({ message: "You are not a member of this team" });
+      }
+      
+      const activities = await storage.getTeamActivities(
+        teamId,
+        startDate as string,
+        endDate as string
+      );
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching team activities:", error);
+      res.status(500).json({ message: "Failed to fetch team activities" });
+    }
+  });
+
   // Notification Preferences Routes
   app.get("/api/notification-preferences", isAuthenticated, async (req: any, res) => {
     try {
