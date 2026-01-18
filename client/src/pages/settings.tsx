@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useTheme } from "@/components/theme-provider";
 import { usePWA } from "@/hooks/use-pwa";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   Bell,
   Moon,
@@ -20,6 +22,8 @@ import {
   BellRing,
   Check,
   Clock,
+  Loader2,
+  Save,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -38,6 +42,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
   const [notificationSettings, setNotificationSettings] = useState({
     emailNotifications: true,
@@ -46,6 +51,64 @@ export default function SettingsPage() {
     activityReminders: true,
     reminderTimes: [60] as number[],
   });
+
+  // Fetch notification preferences
+  const { data: preferences, isLoading: isLoadingPrefs } = useQuery<{
+    shiftReminders: boolean;
+    activityReminders: boolean;
+    reminderMinutesBefore: number;
+    pushEnabled: boolean;
+  }>({
+    queryKey: ["/api/notification-preferences"],
+  });
+
+  // Update local state when preferences are loaded
+  useEffect(() => {
+    if (preferences) {
+      setNotificationSettings(prev => ({
+        ...prev,
+        shiftReminders: preferences.shiftReminders,
+        activityReminders: preferences.activityReminders,
+        reminderTimes: [preferences.reminderMinutesBefore || 60],
+      }));
+      setHasChanges(false);
+    }
+  }, [preferences]);
+
+  // Save preferences mutation
+  const savePreferencesMutation = useMutation({
+    mutationFn: async (data: {
+      shiftReminders: boolean;
+      activityReminders: boolean;
+      reminderMinutesBefore: number;
+    }) => {
+      return apiRequest("PUT", "/api/notification-preferences", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notification-preferences"] });
+      toast({ title: "Preferencias guardadas", description: "Tus preferencias de notificación han sido actualizadas." });
+      setHasChanges(false);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "No se pudieron guardar las preferencias.", variant: "destructive" });
+    },
+  });
+
+  const handleSavePreferences = () => {
+    savePreferencesMutation.mutate({
+      shiftReminders: notificationSettings.shiftReminders,
+      activityReminders: notificationSettings.activityReminders,
+      reminderMinutesBefore: notificationSettings.reminderTimes[0] || 60,
+    });
+  };
+
+  const updateSetting = <K extends keyof typeof notificationSettings>(
+    key: K,
+    value: typeof notificationSettings[K]
+  ) => {
+    setNotificationSettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
 
   const handleInstall = async () => {
     const success = await promptInstall();
@@ -264,96 +327,99 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              <CardTitle>Notificaciones</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                <CardTitle>Notificaciones</CardTitle>
+              </div>
+              {hasChanges && (
+                <Button 
+                  onClick={handleSavePreferences}
+                  disabled={savePreferencesMutation.isPending}
+                  size="sm"
+                  data-testid="button-save-preferences"
+                >
+                  {savePreferencesMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Guardar
+                </Button>
+              )}
             </div>
             <CardDescription>
               Configura cómo y cuándo recibir notificaciones
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Notificaciones por email</Label>
-                <p className="text-sm text-muted-foreground">
-                  Recibe confirmaciones y recordatorios por correo
-                </p>
+            {isLoadingPrefs ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-              <Switch defaultChecked data-testid="switch-email-notifications" />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Recordatorios de turnos</Label>
-                <p className="text-sm text-muted-foreground">
-                  Recibe un recordatorio antes de tus turnos programados
-                </p>
-              </div>
-              <Switch defaultChecked data-testid="switch-reminders" />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Cambios en el calendario</Label>
-                <p className="text-sm text-muted-foreground">
-                  Notificaciones cuando hay cambios en los turnos
-                </p>
-              </div>
-              <Switch defaultChecked data-testid="switch-calendar-changes" />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Recordatorios de actividades</Label>
-                <p className="text-sm text-muted-foreground">
-                  Alertas para tus actividades programadas
-                </p>
-              </div>
-              <Switch defaultChecked data-testid="switch-activity-reminders" />
-            </div>
-            <Separator />
-            <div className="space-y-3">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <Label>Tiempos de anticipación</Label>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Recordatorios de turnos</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Recibe un recordatorio antes de tus turnos programados
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={notificationSettings.shiftReminders}
+                    onCheckedChange={(checked) => updateSetting("shiftReminders", checked)}
+                    data-testid="switch-shift-reminders" 
+                  />
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Selecciona cuándo recibir recordatorios (puedes elegir varios)
-                </p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[
-                  { value: 1, label: "1 minuto" },
-                  { value: 5, label: "5 minutos" },
-                  { value: 15, label: "15 minutos" },
-                  { value: 30, label: "30 minutos" },
-                  { value: 60, label: "1 hora" },
-                  { value: 120, label: "2 horas" },
-                  { value: 1440, label: "1 día" },
-                ].map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex items-center gap-2 p-2 rounded-md border cursor-pointer hover-elevate"
-                  >
-                    <Checkbox
-                      checked={notificationSettings.reminderTimes.includes(option.value)}
-                      onCheckedChange={(checked) => {
-                        setNotificationSettings(prev => ({
-                          ...prev,
-                          reminderTimes: checked
-                            ? [...prev.reminderTimes, option.value]
-                            : prev.reminderTimes.filter(t => t !== option.value)
-                        }));
-                      }}
-                      data-testid={`checkbox-reminder-${option.value}`}
-                    />
-                    <span className="text-sm">{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Recordatorios de actividades</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Alertas para tus actividades programadas
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={notificationSettings.activityReminders}
+                    onCheckedChange={(checked) => updateSetting("activityReminders", checked)}
+                    data-testid="switch-activity-reminders" 
+                  />
+                </div>
+                <Separator />
+                <div className="space-y-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <Label>Tiempo de anticipación</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Selecciona cuándo recibir el recordatorio antes del evento
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { value: 5, label: "5 min" },
+                      { value: 15, label: "15 min" },
+                      { value: 30, label: "30 min" },
+                      { value: 60, label: "1 hora" },
+                      { value: 120, label: "2 horas" },
+                      { value: 1440, label: "1 día" },
+                    ].map((option) => (
+                      <Button
+                        key={option.value}
+                        variant={notificationSettings.reminderTimes.includes(option.value) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => updateSetting("reminderTimes", [option.value])}
+                        data-testid={`button-reminder-${option.value}`}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
