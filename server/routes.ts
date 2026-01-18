@@ -1701,7 +1701,8 @@ export async function registerRoutes(
           },
           actions: [
             { action: "confirm", title: "Confirmar" },
-            { action: "snooze-15", title: "Posponer 15 min" }
+            { action: "snooze-5", title: "+5 min" },
+            { action: "snooze-15", title: "+15 min" }
           ]
         })
       );
@@ -1864,8 +1865,8 @@ async function sendScheduledNotifications() {
               },
               actions: [
                 { action: "confirm", title: "Confirmar" },
-                { action: "snooze-15", title: "+15 min" },
-                { action: "snooze-30", title: "+30 min" }
+                { action: "snooze-5", title: "+5 min" },
+                { action: "snooze-15", title: "+15 min" }
               ]
             })
           );
@@ -1920,8 +1921,8 @@ async function sendScheduledNotifications() {
               },
               actions: [
                 { action: "confirm", title: "Confirmar" },
-                { action: "snooze-15", title: "+15 min" },
-                { action: "snooze-30", title: "+30 min" }
+                { action: "snooze-5", title: "+5 min" },
+                { action: "snooze-15", title: "+15 min" }
               ]
             })
           );
