@@ -1,0 +1,128 @@
+[root@localhost comite]# cat > /var/www/comite/ecosystem.config.cjs << 'EOF'
+module.exports = {
+  apps: [{
+    name: 'comite-app',
+    script: 'dist/index.cjs',
+    cwd: '/var/www/comite',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 5001,
+      DATABASE_URL: 'postgresql://comite_user:TuPasswordSeguro123@localhost:5432/comite_db',
+      SESSION_SECRET: 'tu_session_secret_aqui',
+      VAPID_PUBLIC_KEY: 'BJ69sx_7jewJHU_2K71X0YwC8UYOUV32mYHEYY7bwjyRD8gHMDPniGoGWoXP-BcstlOhbNiUOwRT4QI1hLg1_G4',
+      VAPID_PRIVATE_KEY: '5Hqb4X_1qDFzX2BwcsQji7Juulf_Fb3zdp7C_pCAWDI'
+    }
+  }]
+};
+EOF
+[root@localhost comite]# cd /var/www/comite
+pm2 start ecosystem.config.cjs
+[PM2][WARN] Applications comite-app not running, starting...
+[PM2] App [comite-app] launched (1 instances)
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 3  │ comite-app         │ fork     │ 0    │ online    │ 0%       │ 17.3mb   │
+│ 0  │ sheltiescrm        │ fork     │ 106  │ stopped   │ 0%       │ 0b       │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[root@localhost comite]# pm2 save
+pm2 logs comite-app --lines 50
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+[TAILING] Tailing last 50 lines for [comite-app] process (change the value with --lines option)
+/root/.pm2/logs/comite-app-error.log last 50 lines:
+3|comite-a |   code: 'EADDRINUSE',
+3|comite-a |   errno: -98,
+3|comite-a |   syscall: 'listen',
+3|comite-a |   address: '0.0.0.0',
+3|comite-a |   port: 5000
+3|comite-a | }
+3|comite-a | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+3|comite-a |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+3|comite-a |     at listenInCluster (node:net:1965:12)
+3|comite-a |     at doListen (node:net:2139:7)
+3|comite-a |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21) {
+3|comite-a |   code: 'EADDRINUSE',
+3|comite-a |   errno: -98,
+3|comite-a |   syscall: 'listen',
+3|comite-a |   address: '0.0.0.0',
+3|comite-a |   port: 5000
+3|comite-a | }
+3|comite-a | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+3|comite-a |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+3|comite-a |     at listenInCluster (node:net:1965:12)
+3|comite-a |     at doListen (node:net:2139:7)
+3|comite-a |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21) {
+3|comite-a |   code: 'EADDRINUSE',
+3|comite-a |   errno: -98,
+3|comite-a |   syscall: 'listen',
+3|comite-a |   address: '0.0.0.0',
+3|comite-a |   port: 5000
+3|comite-a | }
+3|comite-a | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+3|comite-a |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+3|comite-a |     at listenInCluster (node:net:1965:12)
+3|comite-a |     at doListen (node:net:2139:7)
+3|comite-a |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21) {
+3|comite-a |   code: 'EADDRINUSE',
+3|comite-a |   errno: -98,
+3|comite-a |   syscall: 'listen',
+3|comite-a |   address: '0.0.0.0',
+3|comite-a |   port: 5000
+3|comite-a | }
+3|comite-a | Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+3|comite-a |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+3|comite-a |     at listenInCluster (node:net:1965:12)
+3|comite-a |     at doListen (node:net:2139:7)
+3|comite-a |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21) {
+3|comite-a |   code: 'EADDRINUSE',
+3|comite-a |   errno: -98,
+3|comite-a |   syscall: 'listen',
+3|comite-a |   address: '0.0.0.0',
+3|comite-a |   port: 5000
+3|comite-a | }
+
+/root/.pm2/logs/comite-app-out.log last 50 lines:
+3|comite-a | sGeneralCouncilMember":true,"isTeamOwner":false,"isTeamAuxiliary":false,"teamId":null,"team":null}
+3|comite-a | 4:10:46 AM [express] GET /api/upcoming-slots 200 in 21ms :: []
+3|comite-a | 4:10:46 AM [express] GET /api/my-memberships 200 in 23ms :: [{"id":"a190a212-6cc6-427a-8e19-9e6afa36de85","committeeId":"c2c624a3-21ce-4f1c-b730-6617873612a5","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","isAdmin":true,"leadershipRole":"counselor","roleId":null,"isActive":true,"joinedAt":"2026-01-17T22:01:22.744Z","committee":{"id":"c2c624a3-21ce-4f1c-b730-6617873612a5","name":"Instituto Electoral de Coahuila","code":"IEC-001","description":"","logoUrl":null,"isActive":true,"isGeneral":true,"usesShifts":false,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-11T22:53:25.744Z"}},{"id":"e66a526a-3bee-4292-8d34-aeb17a3fd272","committeeId":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","isAdmin":true,"leadershipRole":"none","roleId":"88bbf16b-4a3d-460f-9172-6df90bea4a5a","isActive":true,"joinedAt":"2026-01-06T21:56:53.213Z","committee":{"id":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","name":"Comite Distrital 8 Torreon","code":"COM-08","description":"","logoUrl":null,"isActive":true,"isGeneral":false,"usesShifts":true,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-06T21:55:48.754Z"}}]
+3|comite-a | 4:10:46 AM [express] GET /api/committees 200 in 26ms :: [{"id":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","name":"Comite Distrital 8 Torreon","code":"COM-08","description":"","logoUrl":null,"isActive":true,"isGeneral":false,"usesShifts":true,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-06T21:55:48.754Z"},{"id":"c2c624a3-21ce-4f1c-b730-6617873612a5","name":"Instituto Electoral de Coahuila","code":"IEC-001","description":"","logoUrl":null,"isActive":true,"isGeneral":true,"usesShifts":false,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-11T22:53:25.744Z"}]
+3|comite-a | 4:11:03 AM [express] GET /api/auth/user 304 in 3ms :: {"id":"955216ec-35f5-445a-aa1f-974601bc0e4f","email":"checodovalina@gmail.com","firstName":"Sergio","lastName":"Dovalina Flores","profileImageUrl":null,"isSuperAdmin":false}
+3|comite-a | 4:11:03 AM [express] GET /api/my-team-context 304 in 15ms :: {"isGeneralCouncilMember":true,"isTeamOwner":false,"isTeamAuxiliary":false,"teamId":null,"team":null}
+3|comite-a | 4:11:03 AM [express] GET /api/upcoming-slots 304 in 16ms :: []
+3|comite-a | 4:11:03 AM [express] GET /api/committees 304 in 7ms :: [{"id":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","name":"Comite Distrital 8 Torreon","code":"COM-08","description":"","logoUrl":null,"isActive":true,"isGeneral":false,"usesShifts":true,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-06T21:55:48.754Z"},{"id":"c2c624a3-21ce-4f1c-b730-6617873612a5","name":"Instituto Electoral de Coahuila","code":"IEC-001","description":"","logoUrl":null,"isActive":true,"isGeneral":true,"usesShifts":false,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-11T22:53:25.744Z"}]
+3|comite-a | 4:11:03 AM [express] GET /api/my-memberships 304 in 10ms :: [{"id":"a190a212-6cc6-427a-8e19-9e6afa36de85","committeeId":"c2c624a3-21ce-4f1c-b730-6617873612a5","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","isAdmin":true,"leadershipRole":"counselor","roleId":null,"isActive":true,"joinedAt":"2026-01-17T22:01:22.744Z","committee":{"id":"c2c624a3-21ce-4f1c-b730-6617873612a5","name":"Instituto Electoral de Coahuila","code":"IEC-001","description":"","logoUrl":null,"isActive":true,"isGeneral":true,"usesShifts":false,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-11T22:53:25.744Z"}},{"id":"e66a526a-3bee-4292-8d34-aeb17a3fd272","committeeId":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","isAdmin":true,"leadershipRole":"none","roleId":"88bbf16b-4a3d-460f-9172-6df90bea4a5a","isActive":true,"joinedAt":"2026-01-06T21:56:53.213Z","committee":{"id":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","name":"Comite Distrital 8 Torreon","code":"COM-08","description":"","logoUrl":null,"isActive":true,"isGeneral":false,"usesShifts":true,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-06T21:55:48.754Z"}}]
+3|comite-a | 4:11:09 AM [express] GET /api/notification-preferences 200 in 4ms :: {"id":"ce6f0bbe-bfd2-423f-81c7-38f0584ae563","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","shiftReminders":true,"activityReminders":true,"reminderMinutesBefore":60,"pushEnabled":true,"pushSubscription":"{\"endpoint\":\"https://fcm.googleapis.com/fcm/send/fZgqW7-Df4Q:APA91bEVJRwnn7dWnXfVWz1yWrQ7rmABJT2wjGGLQ-R5vQWRCSS7DeUi-5mdQayqvNuuZTgzrjF7ziTwTbX5WKd0zk3IIWWil0WJ1JdPKUXqkmJrGm_z7ygpoqF2q0hN18CINKSvfP_B\",\"expirationTime\":null,\"keys\":{\"p256dh\":\"BJweqJ8V8iIrPjVzhT321IW6_8Tw0w8asyYYYNk0Cn8Bhof9BU7_69rnc2n09czIkYP8xQlPRUVdDALs1uETeI4\",\"auth\":\"jUmbWSzkCZHaimbcdh1Brw\"}}","createdAt":"2026-01-12T19:19:56.534Z","updatedAt":"2026-01-12T19:19:56.534Z"}
+3|comite-a | 4:11:17 AM [express] GET /api/vapid-public-key 200 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:22 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:23 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:24 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:25 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+3|comite-a | 4:11:26 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:26 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:27 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+3|comite-a | 4:11:28 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:28 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+3|comite-a | 4:11:31 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+3|comite-a | 4:11:32 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:33 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+3|comite-a | 4:11:36 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+3|comite-a | 4:11:37 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+3|comite-a | 4:11:37 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:11:38 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+3|comite-a | 4:15:37 AM [express] GET /api/notification-preferences 200 in 15ms :: {"id":"ce6f0bbe-bfd2-423f-81c7-38f0584ae563","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","shiftReminders":true,"activityReminders":true,"reminderMinutesBefore":60,"pushEnabled":true,"pushSubscription":"{\"endpoint\":\"https://fcm.googleapis.com/fcm/send/fZgqW7-Df4Q:APA91bEVJRwnn7dWnXfVWz1yWrQ7rmABJT2wjGGLQ-R5vQWRCSS7DeUi-5mdQayqvNuuZTgzrjF7ziTwTbX5WKd0zk3IIWWil0WJ1JdPKUXqkmJrGm_z7ygpoqF2q0hN18CINKSvfP_B\",\"expirationTime\":null,\"keys\":{\"p256dh\":\"BJweqJ8V8iIrPjVzhT321IW6_8Tw0w8asyYYYNk0Cn8Bhof9BU7_69rnc2n09czIkYP8xQlPRUVdDALs1uETeI4\",\"auth\":\"jUmbWSzkCZHaimbcdh1Brw\"}}","createdAt":"2026-01-12T19:19:56.534Z","updatedAt":"2026-01-12T19:19:56.534Z"}
+3|comite-a | 4:15:46 AM [express] GET /api/vapid-public-key 200 in 4ms :: {"publicKey":""}
+3|comite-a | 4:15:49 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:16:00 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+3|comite-a | 4:25:37 AM [express] serving on port 5001
+3|comite-a | 4:25:47 AM [express] GET /api/auth/user 200 in 7ms :: {"id":"955216ec-35f5-445a-aa1f-974601bc0e4f","email":"checodovalina@gmail.com","firstName":"Sergio","lastName":"Dovalina Flores","profileImageUrl":null,"isSuperAdmin":false}
+3|comite-a | 4:25:47 AM [express] GET /api/notification-preferences 200 in 6ms :: {"id":"ce6f0bbe-bfd2-423f-81c7-38f0584ae563","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","shiftReminders":true,"activityReminders":true,"reminderMinutesBefore":60,"pushEnabled":true,"pushSubscription":"{\"endpoint\":\"https://fcm.googleapis.com/fcm/send/fZgqW7-Df4Q:APA91bEVJRwnn7dWnXfVWz1yWrQ7rmABJT2wjGGLQ-R5vQWRCSS7DeUi-5mdQayqvNuuZTgzrjF7ziTwTbX5WKd0zk3IIWWil0WJ1JdPKUXqkmJrGm_z7ygpoqF2q0hN18CINKSvfP_B\",\"expirationTime\":null,\"keys\":{\"p256dh\":\"BJweqJ8V8iIrPjVzhT321IW6_8Tw0w8asyYYYNk0Cn8Bhof9BU7_69rnc2n09czIkYP8xQlPRUVdDALs1uETeI4\",\"auth\":\"jUmbWSzkCZHaimbcdh1Brw\"}}","createdAt":"2026-01-12T19:19:56.534Z","updatedAt":"2026-01-12T19:19:56.534Z"}
+3|comite-a | 4:25:47 AM [express] GET /api/my-team-context 200 in 18ms :: {"isGeneralCouncilMember":true,"isTeamOwner":false,"isTeamAuxiliary":false,"teamId":null,"team":null}
+3|comite-a | 4:25:50 AM [express] GET /api/vapid-public-key 200 in 4ms :: {"publicKey":""}
+3|comite-a | 4:25:51 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+3|comite-a | 4:25:51 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+3|comite-a | 4:25:52 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+3|comite-a | 4:31:55 AM [express] serving on port 5000
+3|comite-a | 4:33:24 AM [express] serving on port 5001
+3|comite-a | 4:36:08 AM [express] serving on port 5001
+
