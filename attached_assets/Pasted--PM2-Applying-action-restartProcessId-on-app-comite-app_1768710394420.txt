@@ -1,0 +1,45 @@
+[PM2] Applying action restartProcessId on app [comite-app](ids: [ 2 ])
+[PM2] [comite-app](2) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 2  │ comite-app         │ fork     │ 2    │ online    │ 0%       │ 17.6mb   │
+│ 0  │ sheltiescrm        │ fork     │ 6    │ online    │ 0%       │ 69.2mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[root@localhost comite]# pm2 logs comite-app --lines 20
+[TAILING] Tailing last 20 lines for [comite-app] process (change the value with --lines option)
+/root/.pm2/logs/comite-app-error.log last 20 lines:
+2|comite-a | Error: DATABASE_URL must be set. Did you forget to provision a database?
+2|comite-a |     at Object.<anonymous> (/var/www/comite/dist/index.cjs:76:108253)
+2|comite-a |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+2|comite-a |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+2|comite-a |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+2|comite-a |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+2|comite-a |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+2|comite-a |     at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:240:7)
+2|comite-a |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+2|comite-a |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2|comite-a |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+
+/root/.pm2/logs/comite-app-out.log last 20 lines:
+2|comite-a | 4:11:28 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+2|comite-a | 4:11:31 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+2|comite-a | 4:11:32 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+2|comite-a | 4:11:33 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+2|comite-a | 4:11:36 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+2|comite-a | 4:11:37 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+2|comite-a | 4:11:37 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+2|comite-a | 4:11:38 AM [express] GET /api/vapid-public-key 304 in 3ms :: {"publicKey":""}
+2|comite-a | 4:15:37 AM [express] GET /api/notification-preferences 200 in 15ms :: {"id":"ce6f0bbe-bfd2-423f-81c7-38f0584ae563","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","shiftReminders":true,"activityReminders":true,"reminderMinutesBefore":60,"pushEnabled":true,"pushSubscription":"{\"endpoint\":\"https://fcm.googleapis.com/fcm/send/fZgqW7-Df4Q:APA91bEVJRwnn7dWnXfVWz1yWrQ7rmABJT2wjGGLQ-R5vQWRCSS7DeUi-5mdQayqvNuuZTgzrjF7ziTwTbX5WKd0zk3IIWWil0WJ1JdPKUXqkmJrGm_z7ygpoqF2q0hN18CINKSvfP_B\",\"expirationTime\":null,\"keys\":{\"p256dh\":\"BJweqJ8V8iIrPjVzhT321IW6_8Tw0w8asyYYYNk0Cn8Bhof9BU7_69rnc2n09czIkYP8xQlPRUVdDALs1uETeI4\",\"auth\":\"jUmbWSzkCZHaimbcdh1Brw\"}}","createdAt":"2026-01-12T19:19:56.534Z","updatedAt":"2026-01-12T19:19:56.534Z"}
+2|comite-a | 4:15:46 AM [express] GET /api/vapid-public-key 200 in 4ms :: {"publicKey":""}
+2|comite-a | 4:15:49 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+2|comite-a | 4:16:00 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+2|comite-a | 4:25:37 AM [express] serving on port 5001
+2|comite-a | 4:25:47 AM [express] GET /api/auth/user 200 in 7ms :: {"id":"955216ec-35f5-445a-aa1f-974601bc0e4f","email":"checodovalina@gmail.com","firstName":"Sergio","lastName":"Dovalina Flores","profileImageUrl":null,"isSuperAdmin":false}
+2|comite-a | 4:25:47 AM [express] GET /api/notification-preferences 200 in 6ms :: {"id":"ce6f0bbe-bfd2-423f-81c7-38f0584ae563","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","shiftReminders":true,"activityReminders":true,"reminderMinutesBefore":60,"pushEnabled":true,"pushSubscription":"{\"endpoint\":\"https://fcm.googleapis.com/fcm/send/fZgqW7-Df4Q:APA91bEVJRwnn7dWnXfVWz1yWrQ7rmABJT2wjGGLQ-R5vQWRCSS7DeUi-5mdQayqvNuuZTgzrjF7ziTwTbX5WKd0zk3IIWWil0WJ1JdPKUXqkmJrGm_z7ygpoqF2q0hN18CINKSvfP_B\",\"expirationTime\":null,\"keys\":{\"p256dh\":\"BJweqJ8V8iIrPjVzhT321IW6_8Tw0w8asyYYYNk0Cn8Bhof9BU7_69rnc2n09czIkYP8xQlPRUVdDALs1uETeI4\",\"auth\":\"jUmbWSzkCZHaimbcdh1Brw\"}}","createdAt":"2026-01-12T19:19:56.534Z","updatedAt":"2026-01-12T19:19:56.534Z"}
+2|comite-a | 4:25:47 AM [express] GET /api/my-team-context 200 in 18ms :: {"isGeneralCouncilMember":true,"isTeamOwner":false,"isTeamAuxiliary":false,"teamId":null,"team":null}
+2|comite-a | 4:25:50 AM [express] GET /api/vapid-public-key 200 in 4ms :: {"publicKey":""}
+2|comite-a | 4:25:51 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+2|comite-a | 4:25:51 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+2|comite-a | 4:25:52 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+
