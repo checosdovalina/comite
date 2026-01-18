@@ -10,9 +10,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Users, UserPlus, AlertCircle } from "lucide-react";
+import { Loader2, Users, UserPlus, AlertCircle, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 interface PublicCommittee {
   id: string;
@@ -44,9 +45,50 @@ type RegisterForm = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const inviteToken = searchParams.get("invite");
+
+  if (user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900">
+              <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <CardTitle>Ya tienes una sesión activa</CardTitle>
+            <CardDescription>
+              Para registrar una nueva cuenta, primero debes cerrar tu sesión actual.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-center text-sm text-muted-foreground">
+              Estás conectado como: <strong>{user.email}</strong>
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  await apiRequest("POST", "/api/auth/logout");
+                  queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+                  window.location.reload();
+                }}
+                data-testid="button-logout-register"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar sesión y continuar
+              </Button>
+              <Button variant="ghost" onClick={() => setLocation("/dashboard")} data-testid="button-go-dashboard">
+                Volver al Dashboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const { data: inviteDetails, isLoading: inviteLoading, error: inviteError } = useQuery<InviteDetails>({
     queryKey: ["/api/invites", inviteToken],

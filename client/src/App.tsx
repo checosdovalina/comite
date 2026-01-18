@@ -58,6 +58,7 @@ function AuthenticatedRouter() {
               <Route path="/settings" component={SettingsPage} />
               <Route path="/admin" component={AdminPage} />
               <Route path="/team" component={TeamPage} />
+              <Route path="/register" component={RegisterPage} />
               <Route component={NotFound} />
             </Switch>
           </main>
