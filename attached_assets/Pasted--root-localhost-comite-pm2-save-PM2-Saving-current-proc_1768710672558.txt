@@ -1,0 +1,29 @@
+[root@localhost comite]# pm2 save
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+[root@localhost comite]# pm2 logs comite-app --lines 10
+[TAILING] Tailing last 10 lines for [comite-app] process (change the value with --lines option)
+/root/.pm2/logs/comite-app-out.log last 10 lines:
+3|comite-a | 4:15:49 AM [express] GET /api/vapid-public-key 304 in 4ms :: {"publicKey":""}
+3|comite-a | 4:16:00 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+3|comite-a | 4:25:37 AM [express] serving on port 5001
+3|comite-a | 4:25:47 AM [express] GET /api/auth/user 200 in 7ms :: {"id":"955216ec-35f5-445a-aa1f-974601bc0e4f","email":"checodovalina@gmail.com","firstName":"Sergio","lastName":"Dovalina Flores","profileImageUrl":null,"isSuperAdmin":false}
+3|comite-a | 4:25:47 AM [express] GET /api/notification-preferences 200 in 6ms :: {"id":"ce6f0bbe-bfd2-423f-81c7-38f0584ae563","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","shiftReminders":true,"activityReminders":true,"reminderMinutesBefore":60,"pushEnabled":true,"pushSubscription":"{\"endpoint\":\"https://fcm.googleapis.com/fcm/send/fZgqW7-Df4Q:APA91bEVJRwnn7dWnXfVWz1yWrQ7rmABJT2wjGGLQ-R5vQWRCSS7DeUi-5mdQayqvNuuZTgzrjF7ziTwTbX5WKd0zk3IIWWil0WJ1JdPKUXqkmJrGm_z7ygpoqF2q0hN18CINKSvfP_B\",\"expirationTime\":null,\"keys\":{\"p256dh\":\"BJweqJ8V8iIrPjVzhT321IW6_8Tw0w8asyYYYNk0Cn8Bhof9BU7_69rnc2n09czIkYP8xQlPRUVdDALs1uETeI4\",\"auth\":\"jUmbWSzkCZHaimbcdh1Brw\"}}","createdAt":"2026-01-12T19:19:56.534Z","updatedAt":"2026-01-12T19:19:56.534Z"}
+3|comite-a | 4:25:47 AM [express] GET /api/my-team-context 200 in 18ms :: {"isGeneralCouncilMember":true,"isTeamOwner":false,"isTeamAuxiliary":false,"teamId":null,"team":null}
+3|comite-a | 4:25:50 AM [express] GET /api/vapid-public-key 200 in 4ms :: {"publicKey":""}
+3|comite-a | 4:25:51 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+3|comite-a | 4:25:51 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+3|comite-a | 4:25:52 AM [express] GET /api/vapid-public-key 200 in 5ms :: {"publicKey":""}
+
+/root/.pm2/logs/comite-app-error.log last 10 lines:
+3|comite-a |     at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+3|comite-a |     at listenInCluster (node:net:1965:12)
+3|comite-a |     at doListen (node:net:2139:7)
+3|comite-a |     at process.processTicksAndRejections (node:internal/process/task_queues:83:21) {
+3|comite-a |   code: 'EADDRINUSE',
+3|comite-a |   errno: -98,
+3|comite-a |   syscall: 'listen',
+3|comite-a |   address: '0.0.0.0',
+3|comite-a |   port: 5000
+3|comite-a | }
+
