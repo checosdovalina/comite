@@ -1,0 +1,166 @@
+[root@localhost ~]# /usr/pgsql-16/bin/pg_dump "postgresql://neondb_owner:npg_KpuxcN9I0ZtP@ep-floral-river-adfvbzwc.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&options=endpoint%3Dep-floral-river-adfvbzwc" > /tmp/comite_backup.sql
+pg_dump: error: aborting because of server version mismatch
+pg_dump: detail: server version: 17.7 (e429a59); pg_dump version: 16.11
+[root@localhost ~]# # Instalar cliente PostgreSQL 17
+sudo dnf install -y postgresql17
+
+# Ahora exportar con pg_dump versión 17
+/usr/pgsql-17/bin/pg_dump "postgresql://neondb_owner:npg_KpuxcN9I0ZtP@ep-floral-river-adfvbzwc.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&options=endpoint%3Dep-floral-river-adfvbzwc" > /tmp/comite_backup.sql
+
+# Verificar
+ls -la /tmp/comite_backup.sql
+
+-f /tmp/comite_backup.sqluro123' psql -U comite_user -h localhost -d comite_db 
+Last metadata expiration check: 0:00:20 ago on Sun 18 Jan 2026 03:28:45 AM UTC.
+Dependencies resolved.
+===============================================================================
+ Package                Arch        Version                  Repository   Size
+===============================================================================
+Installing:
+ postgresql17           x86_64      17.7-1PGDG.rhel9         pgdg17      1.9 M
+Installing dependencies:
+ postgresql17-libs      x86_64      17.7-1PGDG.rhel9         pgdg17      342 k
+
+Transaction Summary
+===============================================================================
+Install  2 Packages
+
+Total download size: 2.2 M
+Installed size: 12 M
+Downloading Packages:
+(1/2): postgresql17-libs-17.7-1PGDG.rhel9.x86_ 2.0 MB/s | 342 kB     00:00    
+(2/2): postgresql17-17.7-1PGDG.rhel9.x86_64.rp 6.0 MB/s | 1.9 MB     00:00    
+-------------------------------------------------------------------------------
+Total                                          7.0 MB/s | 2.2 MB     00:00     
+Running transaction check
+Transaction check succeeded.
+Running transaction test
+Transaction test succeeded.
+Running transaction
+  Preparing        :                                                       1/1 
+  Installing       : postgresql17-libs-17.7-1PGDG.rhel9.x86_64             1/2 
+  Running scriptlet: postgresql17-libs-17.7-1PGDG.rhel9.x86_64             1/2 
+  Installing       : postgresql17-17.7-1PGDG.rhel9.x86_64                  2/2 
+  Running scriptlet: postgresql17-17.7-1PGDG.rhel9.x86_64                  2/2 
+failed to link /usr/bin/psql -> /etc/alternatives/pgsql-psql: /usr/bin/psql exists and it is not a symlink
+failed to link /usr/bin/clusterdb -> /etc/alternatives/pgsql-clusterdb: /usr/bin/clusterdb exists and it is not a symlink
+failed to link /usr/bin/createdb -> /etc/alternatives/pgsql-createdb: /usr/bin/createdb exists and it is not a symlink
+failed to link /usr/bin/createuser -> /etc/alternatives/pgsql-createuser: /usr/bin/createuser exists and it is not a symlink
+failed to link /usr/bin/dropdb -> /etc/alternatives/pgsql-dropdb: /usr/bin/dropdb exists and it is not a symlink
+failed to link /usr/bin/dropuser -> /etc/alternatives/pgsql-dropuser: /usr/bin/dropuser exists and it is not a symlink
+failed to link /usr/bin/pg_basebackup -> /etc/alternatives/pgsql-pg_basebackup: /usr/bin/pg_basebackup exists and it is not a symlink
+failed to link /usr/bin/pg_dump -> /etc/alternatives/pgsql-pg_dump: /usr/bin/pg_dump exists and it is not a symlink
+failed to link /usr/bin/pg_dumpall -> /etc/alternatives/pgsql-pg_dumpall: /usr/bin/pg_dumpall exists and it is not a symlink
+failed to link /usr/bin/pg_restore -> /etc/alternatives/pgsql-pg_restore: /usr/bin/pg_restore exists and it is not a symlink
+failed to link /usr/bin/reindexdb -> /etc/alternatives/pgsql-reindexdb: /usr/bin/reindexdb exists and it is not a symlink
+failed to link /usr/bin/vacuumdb -> /etc/alternatives/pgsql-vacuumdb: /usr/bin/vacuumdb exists and it is not a symlink
+
+  Verifying        : postgresql17-17.7-1PGDG.rhel9.x86_64                  1/2 
+  Verifying        : postgresql17-libs-17.7-1PGDG.rhel9.x86_64             2/2 
+
+Installed:
+  postgresql17-17.7-1PGDG.rhel9.x86_64                                         
+  postgresql17-libs-17.7-1PGDG.rhel9.x86_64                                    
+
+Complete!
+-rw-r--r--. 1 root root 32366 Jan 18 03:29 /tmp/comite_backup.sql
+SET
+SET
+SET
+psql:/tmp/comite_backup.sql:13: ERROR:  unrecognized configuration parameter "transaction_timeout"
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+CREATE TYPE
+psql:/tmp/comite_backup.sql:37: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:/tmp/comite_backup.sql:51: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:/tmp/comite_backup.sql:67: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:/tmp/comite_backup.sql:80: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:/tmp/comite_backup.sql:92: ERROR:  role "neondb_owner" does not exist
+CREATE TYPE
+psql:/tmp/comite_backup.sql:104: ERROR:  role "neondb_owner" does not exist
+SET
+SET
+CREATE TABLE
+psql:/tmp/comite_backup.sql:124: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:142: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:158: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:176: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:202: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:217: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:234: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:261: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:280: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:297: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:310: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:330: ERROR:  role "neondb_owner" does not exist
+CREATE TABLE
+psql:/tmp/comite_backup.sql:349: ERROR:  role "neondb_owner" does not exist
+COPY 3
+COPY 6
+COPY 8
+COPY 8
+COPY 2
+COPY 1
+COPY 2
+COPY 9
+COPY 1
+COPY 10
+COPY 6
+COPY 1
+COPY 6
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+psql:/tmp/comite_backup.sql:753: ERROR:  role "neon_superuser" does not exist
+psql:/tmp/comite_backup.sql:760: ERROR:  role "neon_superuser" does not exist
+[root@localhost ~]# 
