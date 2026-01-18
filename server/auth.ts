@@ -146,11 +146,85 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ message: result.error.errors[0].message });
       }
 
-      const { email, password, firstName, lastName, committeeId } = result.data;
+      const { email, password, firstName, lastName, committeeId, inviteToken } = result.data;
 
       const existingUser = await findUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "Este correo ya está registrado" });
+      }
+
+      // Handle invite token registration
+      if (inviteToken) {
+        const invite = await storage.getTeamInviteByToken(inviteToken);
+        if (!invite) {
+          return res.status(400).json({ message: "Invitación no encontrada" });
+        }
+        if (invite.status !== "pending") {
+          return res.status(400).json({ message: "Esta invitación ya ha sido usada o cancelada" });
+        }
+        if (new Date(invite.expiresAt) < new Date()) {
+          return res.status(400).json({ message: "Esta invitación ha expirado" });
+        }
+        if (invite.email.toLowerCase() !== email.toLowerCase()) {
+          return res.status(400).json({ message: "El correo electrónico no coincide con la invitación" });
+        }
+
+        // Get the team to find the committee
+        const team = await storage.getCounselorTeam(invite.teamId);
+        if (!team) {
+          return res.status(400).json({ message: "El equipo ya no existe" });
+        }
+
+        // Create user
+        const user = await createUser(email, password, firstName, lastName);
+
+        // Add user to the committee as a member
+        await storage.createCommitteeMember({
+          committeeId: team.committeeId,
+          userId: user.id,
+          isAdmin: false,
+          leadershipRole: "none",
+          isActive: true,
+        });
+
+        // Add user to the team
+        await storage.createCounselorTeamMember({
+          teamId: invite.teamId,
+          userId: user.id,
+          role: invite.role as "counselor" | "auxiliary",
+        });
+
+        // Mark invite as accepted
+        await storage.updateTeamInviteStatus(invite.id, "accepted");
+
+        req.login(
+          {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            profileImageUrl: user.profileImageUrl,
+            isSuperAdmin: user.isSuperAdmin,
+          },
+          (err) => {
+            if (err) {
+              return next(err);
+            }
+            res.json({
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              isSuperAdmin: user.isSuperAdmin,
+            });
+          }
+        );
+        return;
+      }
+
+      // Normal registration flow
+      if (!committeeId) {
+        return res.status(400).json({ message: "Debes seleccionar un comité" });
       }
 
       const committee = await storage.getCommittee(committeeId);

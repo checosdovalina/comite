@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
 import { insertCommitteeSchema, insertAttendanceSlotSchema, insertMemberActivitySchema, insertNotificationPreferencesSchema, insertRoleSchema } from "@shared/schema";
@@ -1264,6 +1265,160 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error removing team member:", error);
       res.status(500).json({ message: "Failed to remove team member" });
+    }
+  });
+
+  // Team Invites Routes
+  app.get("/api/teams/:teamId/invites", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId } = req.params;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      // Only team owner can view invites
+      if (team.ownerUserId !== userId) {
+        return res.status(403).json({ message: "Only the team owner can view invites" });
+      }
+      
+      const invites = await storage.getTeamInvites(teamId);
+      res.json(invites);
+    } catch (error) {
+      console.error("Error fetching team invites:", error);
+      res.status(500).json({ message: "Failed to fetch team invites" });
+    }
+  });
+
+  app.post("/api/teams/:teamId/invites", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId } = req.params;
+      const { email, role = "auxiliary" } = req.body;
+      
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      // Only team owner can send invites
+      if (team.ownerUserId !== userId) {
+        return res.status(403).json({ message: "Only the team owner can send invites" });
+      }
+      
+      // Check if user already exists in system
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        // Check if user is already a team member
+        const existingMember = await storage.getCounselorTeamMember(teamId, existingUser.id);
+        if (existingMember) {
+          return res.status(400).json({ message: "User is already a team member" });
+        }
+        
+        // Add them directly as a team member
+        const member = await storage.createCounselorTeamMember({
+          teamId,
+          userId: existingUser.id,
+          role: role as "counselor" | "auxiliary",
+        });
+        return res.status(201).json({ 
+          type: "member_added",
+          message: "User added as team member",
+          member 
+        });
+      }
+      
+      // Check if there's already a pending invite for this email
+      const existingInvite = await storage.getTeamInviteByEmail(teamId, email);
+      if (existingInvite) {
+        return res.status(400).json({ message: "An invite is already pending for this email" });
+      }
+      
+      // Generate secure token and expiration (7 days)
+      const token = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      
+      const invite = await storage.createTeamInvite({
+        teamId,
+        email,
+        invitedByUserId: userId,
+        token,
+        status: "pending",
+        role: role as "counselor" | "auxiliary",
+        expiresAt,
+      });
+      
+      res.status(201).json({ 
+        type: "invite_created",
+        message: "Invitation created",
+        invite,
+        registrationUrl: `/register?invite=${token}`
+      });
+    } catch (error) {
+      console.error("Error creating team invite:", error);
+      res.status(500).json({ message: "Failed to create invite" });
+    }
+  });
+
+  app.delete("/api/teams/:teamId/invites/:inviteId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { teamId, inviteId } = req.params;
+      
+      const team = await storage.getCounselorTeam(teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      
+      // Only team owner can cancel invites
+      if (team.ownerUserId !== userId) {
+        return res.status(403).json({ message: "Only the team owner can cancel invites" });
+      }
+      
+      await storage.updateTeamInviteStatus(inviteId, "cancelled");
+      res.json({ message: "Invite cancelled" });
+    } catch (error) {
+      console.error("Error cancelling invite:", error);
+      res.status(500).json({ message: "Failed to cancel invite" });
+    }
+  });
+
+  // Public endpoint to get invite details by token
+  app.get("/api/invites/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      const invite = await storage.getTeamInviteByToken(token);
+      if (!invite) {
+        return res.status(404).json({ message: "Invite not found" });
+      }
+      
+      if (invite.status !== "pending") {
+        return res.status(400).json({ message: "This invite has already been used or cancelled" });
+      }
+      
+      if (new Date(invite.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "This invite has expired" });
+      }
+      
+      // Get team info
+      const team = await storage.getCounselorTeam(invite.teamId);
+      
+      res.json({
+        email: invite.email,
+        role: invite.role,
+        teamName: team?.name,
+        expiresAt: invite.expiresAt,
+      });
+    } catch (error) {
+      console.error("Error fetching invite:", error);
+      res.status(500).json({ message: "Failed to fetch invite" });
     }
   });
 

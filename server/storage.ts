@@ -9,6 +9,7 @@ import {
   activityAttendances,
   counselorTeams,
   counselorTeamMembers,
+  teamInvites,
   type Committee,
   type InsertCommittee,
   type CommitteeMember,
@@ -29,6 +30,8 @@ import {
   type InsertCounselorTeam,
   type CounselorTeamMember,
   type InsertCounselorTeamMember,
+  type TeamInvite,
+  type InsertTeamInvite,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -108,6 +111,14 @@ export interface IStorage {
   createCounselorTeamMember(data: InsertCounselorTeamMember): Promise<CounselorTeamMember>;
   deleteCounselorTeamMember(teamId: string, userId: string): Promise<boolean>;
   getTeamActivities(teamId: string, startDate?: string, endDate?: string): Promise<(MemberActivity & { userName?: string })[]>;
+  
+  // Team Invites
+  getTeamInvites(teamId: string): Promise<TeamInvite[]>;
+  getTeamInviteByToken(token: string): Promise<TeamInvite | undefined>;
+  getTeamInviteByEmail(teamId: string, email: string): Promise<TeamInvite | undefined>;
+  getPendingInviteByEmail(email: string): Promise<(TeamInvite & { team?: CounselorTeam })[]>;
+  createTeamInvite(data: InsertTeamInvite): Promise<TeamInvite>;
+  updateTeamInviteStatus(id: string, status: string, acceptedAt?: Date): Promise<TeamInvite | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -858,6 +869,67 @@ export class DatabaseStorage implements IStorage {
       })
     );
     return activitiesWithUser;
+  }
+
+  // Team Invites
+  async getTeamInvites(teamId: string): Promise<TeamInvite[]> {
+    return await db.select().from(teamInvites).where(eq(teamInvites.teamId, teamId));
+  }
+
+  async getTeamInviteByToken(token: string): Promise<TeamInvite | undefined> {
+    const [invite] = await db.select().from(teamInvites).where(eq(teamInvites.token, token));
+    return invite;
+  }
+
+  async getTeamInviteByEmail(teamId: string, email: string): Promise<TeamInvite | undefined> {
+    const [invite] = await db
+      .select()
+      .from(teamInvites)
+      .where(and(
+        eq(teamInvites.teamId, teamId),
+        eq(teamInvites.email, email.toLowerCase()),
+        eq(teamInvites.status, "pending")
+      ));
+    return invite;
+  }
+
+  async getPendingInviteByEmail(email: string): Promise<(TeamInvite & { team?: CounselorTeam })[]> {
+    const invites = await db
+      .select()
+      .from(teamInvites)
+      .where(and(
+        eq(teamInvites.email, email.toLowerCase()),
+        eq(teamInvites.status, "pending")
+      ));
+    
+    const invitesWithTeam = await Promise.all(
+      invites.map(async (invite) => {
+        const [team] = await db.select().from(counselorTeams).where(eq(counselorTeams.id, invite.teamId));
+        return { ...invite, team };
+      })
+    );
+    return invitesWithTeam;
+  }
+
+  async createTeamInvite(data: InsertTeamInvite): Promise<TeamInvite> {
+    const [invite] = await db.insert(teamInvites).values({
+      ...data,
+      email: data.email.toLowerCase(),
+    }).returning();
+    return invite;
+  }
+
+  async updateTeamInviteStatus(id: string, status: string, acceptedAt?: Date): Promise<TeamInvite | undefined> {
+    const updateData: Record<string, any> = { status };
+    if (acceptedAt) {
+      updateData.acceptedAt = acceptedAt;
+    }
+    const [updated] = await db
+      .update(teamInvites)
+      .set(updateData)
+      .where(eq(teamInvites.id, id))
+      .returning();
+    return updated;
   }
 }
 

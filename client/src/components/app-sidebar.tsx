@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -28,36 +29,50 @@ import {
   UsersRound,
 } from "lucide-react";
 
+type TeamContext = {
+  isGeneralCouncilMember: boolean;
+  isTeamOwner?: boolean;
+  isTeamAuxiliary: boolean;
+  teamId: string | null;
+  team: { id: string; name: string; committeeId: string } | null;
+};
+
 const mainNavItems = [
   {
     title: "Dashboard",
     url: "/",
     icon: Home,
+    hideForAuxiliary: false,
   },
   {
     title: "Comités",
     url: "/committees",
     icon: Building2,
+    hideForAuxiliary: true,
   },
   {
     title: "Calendario",
     url: "/calendar",
     icon: Calendar,
+    hideForAuxiliary: false,
   },
   {
     title: "Asistencias",
     url: "/attendances",
     icon: ClipboardList,
+    hideForAuxiliary: true,
   },
   {
     title: "Actividades",
     url: "/activities",
     icon: ListTodo,
+    hideForAuxiliary: false,
   },
   {
     title: "Mi Equipo",
     url: "/team",
     icon: UsersRound,
+    hideForAuxiliary: false,
   },
 ];
 
@@ -66,22 +81,41 @@ const adminNavItems = [
     title: "Miembros",
     url: "/members",
     icon: Users,
+    hideForAuxiliary: true,
   },
   {
     title: "Reportes",
     url: "/attendance-reports",
     icon: FileSpreadsheet,
+    hideForAuxiliary: true,
   },
   {
     title: "Configuración",
     url: "/settings",
     icon: Settings,
+    hideForAuxiliary: true,
   },
 ];
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+
+  // Fetch team context to determine if user is a team auxiliary (restricted view)
+  const { data: teamContext } = useQuery<TeamContext>({
+    queryKey: ["/api/my-team-context"],
+  });
+
+  const isTeamAuxiliary = teamContext?.isTeamAuxiliary === true;
+
+  // Filter navigation items based on user role
+  const filteredMainNavItems = mainNavItems.filter(item => 
+    !isTeamAuxiliary || !item.hideForAuxiliary
+  );
+
+  const filteredAdminNavItems = adminNavItems.filter(item => 
+    !isTeamAuxiliary || !item.hideForAuxiliary
+  );
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     const first = firstName?.charAt(0) || "";
@@ -103,7 +137,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
+              {filteredMainNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -120,11 +154,12 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {filteredAdminNavItems.length > 0 && (
         <SidebarGroup>
           <SidebarGroupLabel>Administración</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {adminNavItems.map((item) => (
+              {filteredAdminNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -140,6 +175,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
         {user?.isSuperAdmin && (
           <SidebarGroup>

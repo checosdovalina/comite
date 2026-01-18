@@ -30,7 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Users, Plus, UserMinus, Mail, Settings, Calendar, Edit2 } from "lucide-react";
+import { Users, Plus, UserMinus, Mail, Settings, Calendar, Edit2, Link2, X } from "lucide-react";
 import type { CounselorTeam, CounselorTeamMember, Committee } from "@shared/schema";
 import type { User } from "@shared/models/auth";
 import { Link } from "wouter";
@@ -134,25 +134,81 @@ export default function TeamPage() {
     },
   });
 
-  const addMemberMutation = useMutation({
-    mutationFn: async ({ teamId, email }: { teamId: string; email: string }) => {
-      const response = await apiRequest("POST", `/api/teams/${teamId}/members`, { email });
+  // Fetch pending invites for selected team (only for team owners)
+  const { data: teamInvites } = useQuery<any[]>({
+    queryKey: ["/api/teams", selectedTeamId, "invites"],
+    queryFn: async () => {
+      if (!selectedTeamId) return [];
+      const response = await fetch(`/api/teams/${selectedTeamId}/invites`);
+      if (!response.ok) {
+        if (response.status === 403) return [];
+        throw new Error("Failed to fetch invites");
+      }
       return response.json();
     },
-    onSuccess: () => {
+    enabled: !!selectedTeamId && !!myTeams?.find(t => t.id === selectedTeamId && t.ownerUserId === user?.id),
+  });
+
+  const pendingInvites = teamInvites?.filter(i => i.status === "pending") || [];
+
+  const addMemberMutation = useMutation({
+    mutationFn: async ({ teamId, email }: { teamId: string; email: string }) => {
+      const response = await apiRequest("POST", `/api/teams/${teamId}/invites`, { email });
+      return response.json();
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/teams", selectedTeamId, "members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", selectedTeamId, "invites"] });
       queryClient.invalidateQueries({ queryKey: ["/api/my-teams"] });
       setIsAddMemberDialogOpen(false);
       setNewMemberEmail("");
-      toast({
-        title: "Miembro agregado",
-        description: "El auxiliar ha sido agregado al equipo",
-      });
+      
+      if (data.type === "member_added") {
+        toast({
+          title: "Miembro agregado",
+          description: "El usuario ya estaba registrado y fue agregado al equipo",
+        });
+      } else if (data.type === "invite_created") {
+        // Copy registration URL to clipboard
+        const registrationUrl = `${window.location.origin}${data.registrationUrl}`;
+        navigator.clipboard.writeText(registrationUrl).then(() => {
+          toast({
+            title: "Invitación creada",
+            description: "El enlace de registro ha sido copiado. Compártelo con el nuevo auxiliar.",
+          });
+        }).catch(() => {
+          toast({
+            title: "Invitación creada",
+            description: `Comparte este enlace: ${registrationUrl}`,
+          });
+        });
+      }
     },
     onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message || "No se pudo agregar el miembro",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const cancelInviteMutation = useMutation({
+    mutationFn: async ({ teamId, inviteId }: { teamId: string; inviteId: string }) => {
+      const response = await apiRequest("DELETE", `/api/teams/${teamId}/invites/${inviteId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", selectedTeamId, "invites"] });
+      toast({
+        title: "Invitación cancelada",
+        description: "La invitación ha sido cancelada",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo cancelar la invitación",
         variant: "destructive",
       });
     },
@@ -523,6 +579,71 @@ export default function TeamPage() {
                       </p>
                     </CardContent>
                   </Card>
+                )}
+
+                {isOwner && pendingInvites.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">
+                      Invitaciones pendientes ({pendingInvites.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {pendingInvites.map((invite: any) => (
+                        <Card key={invite.id} className="border-dashed" data-testid={`pending-invite-${invite.id}`}>
+                          <CardContent className="flex items-center justify-between py-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarFallback className="text-muted-foreground">
+                                  ?
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium text-muted-foreground">
+                                  {invite.email}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Expira: {new Date(invite.expiresAt).toLocaleDateString("es-MX")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">Pendiente</Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const registrationUrl = `${window.location.origin}/register?invite=${invite.token}`;
+                                  navigator.clipboard.writeText(registrationUrl).then(() => {
+                                    toast({
+                                      title: "Enlace copiado",
+                                      description: "El enlace de registro ha sido copiado al portapapeles",
+                                    });
+                                  });
+                                }}
+                                title="Copiar enlace de invitación"
+                                data-testid={`button-copy-invite-${invite.id}`}
+                              >
+                                <Link2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  cancelInviteMutation.mutate({
+                                    teamId: selectedTeamId!,
+                                    inviteId: invite.id,
+                                  });
+                                }}
+                                disabled={cancelInviteMutation.isPending}
+                                data-testid={`button-cancel-invite-${invite.id}`}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </>
             ) : (

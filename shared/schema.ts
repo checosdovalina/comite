@@ -197,6 +197,35 @@ export const counselorTeamMemberRelations = relations(counselorTeamMembers, ({ o
   }),
 }));
 
+// Team Invitations - for inviting unregistered users to join a team
+export const inviteStatusEnum = pgEnum("invite_status", ["pending", "accepted", "cancelled", "expired"]);
+
+export const teamInvites = pgTable("team_invites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull().references(() => counselorTeams.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  invitedByUserId: varchar("invited_by_user_id").notNull(),
+  token: varchar("token").notNull().unique(),
+  status: inviteStatusEnum("status").notNull().default("pending"),
+  role: teamRoleEnum("role").notNull().default("auxiliary"),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const teamInviteRelations = relations(teamInvites, ({ one }) => ({
+  team: one(counselorTeams, {
+    fields: [teamInvites.teamId],
+    references: [counselorTeams.id],
+  }),
+}));
+
+export const insertTeamInviteSchema = createInsertSchema(teamInvites).omit({
+  id: true,
+  createdAt: true,
+  acceptedAt: true,
+});
+
 export const insertCommitteeSchema = createInsertSchema(committees).omit({
   id: true,
   createdAt: true,
@@ -271,3 +300,5 @@ export type CounselorTeam = typeof counselorTeams.$inferSelect;
 export type InsertCounselorTeam = z.infer<typeof insertCounselorTeamSchema>;
 export type CounselorTeamMember = typeof counselorTeamMembers.$inferSelect;
 export type InsertCounselorTeamMember = z.infer<typeof insertCounselorTeamMemberSchema>;
+export type TeamInvite = typeof teamInvites.$inferSelect;
+export type InsertTeamInvite = z.infer<typeof insertTeamInviteSchema>;

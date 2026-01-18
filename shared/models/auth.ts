@@ -38,8 +38,12 @@ export const registerSchema = z.object({
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
   firstName: z.string().min(1, "El nombre es requerido"),
   lastName: z.string().min(1, "El apellido es requerido"),
-  committeeId: z.string().min(1, "Debes seleccionar un comité"),
-});
+  committeeId: z.string().optional(),
+  inviteToken: z.string().optional(),
+}).refine(
+  (data) => data.committeeId || data.inviteToken,
+  { message: "Debes seleccionar un comité o usar un enlace de invitación" }
+);
 
 export const loginSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),

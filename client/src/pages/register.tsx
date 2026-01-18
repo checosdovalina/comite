@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,21 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Users } from "lucide-react";
+import { Loader2, Users, UserPlus, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useEffect } from "react";
 
 interface PublicCommittee {
   id: string;
   name: string;
   code: string;
+}
+
+interface InviteDetails {
+  email: string;
+  role: string;
+  teamName: string;
+  expiresAt: string;
 }
 
 const registerSchema = z.object({
@@ -24,7 +33,7 @@ const registerSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
   confirmPassword: z.string(),
-  committeeId: z.string().min(1, "Debes seleccionar un comité"),
+  committeeId: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Las contraseñas no coinciden",
   path: ["confirmPassword"],
@@ -35,9 +44,28 @@ type RegisterForm = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const inviteToken = searchParams.get("invite");
+
+  const { data: inviteDetails, isLoading: inviteLoading, error: inviteError } = useQuery<InviteDetails>({
+    queryKey: ["/api/invites", inviteToken],
+    queryFn: async () => {
+      if (!inviteToken) return null;
+      const response = await fetch(`/api/invites/${inviteToken}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Invitación inválida");
+      }
+      return response.json();
+    },
+    enabled: !!inviteToken,
+    retry: false,
+  });
 
   const { data: committees, isLoading: committeesLoading } = useQuery<PublicCommittee[]>({
     queryKey: ["/api/public/committees"],
+    enabled: !inviteToken,
   });
 
   const form = useForm<RegisterForm>({
@@ -52,17 +80,29 @@ export default function RegisterPage() {
     },
   });
 
+  useEffect(() => {
+    if (inviteDetails?.email) {
+      form.setValue("email", inviteDetails.email);
+    }
+  }, [inviteDetails, form]);
+
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterForm) => {
       const { confirmPassword, ...registerData } = data;
-      const res = await apiRequest("POST", "/api/auth/register", registerData);
+      const payload: any = { ...registerData };
+      if (inviteToken) {
+        payload.inviteToken = inviteToken;
+      }
+      const res = await apiRequest("POST", "/api/auth/register", payload);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Cuenta creada",
-        description: "Tu cuenta ha sido creada exitosamente",
+        description: inviteToken 
+          ? "Tu cuenta ha sido creada y has sido agregado al equipo"
+          : "Tu cuenta ha sido creada exitosamente",
       });
       setLocation("/dashboard");
     },
@@ -76,8 +116,50 @@ export default function RegisterPage() {
   });
 
   const onSubmit = (data: RegisterForm) => {
+    if (!inviteToken && !data.committeeId) {
+      toast({
+        title: "Error",
+        description: "Debes seleccionar un comité",
+        variant: "destructive",
+      });
+      return;
+    }
     registerMutation.mutate(data);
   };
+
+  if (inviteToken && inviteLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-8 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p>Verificando invitación...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (inviteToken && inviteError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-8 text-center">
+            <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+            <h2 className="text-lg font-semibold mb-2">Invitación inválida</h2>
+            <p className="text-muted-foreground mb-4">
+              {(inviteError as Error).message || "Esta invitación no es válida o ha expirado"}
+            </p>
+            <Link href="/register">
+              <Button variant="outline" data-testid="button-register-without-invite">
+                Registrarse sin invitación
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -85,12 +167,27 @@ export default function RegisterPage() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="p-3 rounded-md bg-primary/10">
-              <Users className="h-8 w-8 text-primary" />
+              {inviteToken ? (
+                <UserPlus className="h-8 w-8 text-primary" />
+              ) : (
+                <Users className="h-8 w-8 text-primary" />
+              )}
             </div>
           </div>
-          <CardTitle className="text-2xl">Crear Cuenta</CardTitle>
+          <CardTitle className="text-2xl">
+            {inviteToken ? "Únete al Equipo" : "Crear Cuenta"}
+          </CardTitle>
           <CardDescription>
-            Regístrate para gestionar tus comités
+            {inviteToken && inviteDetails ? (
+              <span className="space-y-2">
+                <span className="block">Has sido invitado a unirte al equipo</span>
+                <Badge variant="secondary" className="mt-2">
+                  {inviteDetails.teamName}
+                </Badge>
+              </span>
+            ) : (
+              "Regístrate para gestionar tus comités"
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -143,6 +240,7 @@ export default function RegisterPage() {
                         type="email"
                         placeholder="tu@correo.com"
                         data-testid="input-email"
+                        disabled={!!inviteToken && !!inviteDetails?.email}
                         {...field}
                       />
                     </FormControl>
@@ -186,34 +284,36 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="committeeId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Comité</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-committee">
-                          <SelectValue placeholder={committeesLoading ? "Cargando..." : "Selecciona tu comité"} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {committees?.map((committee) => (
-                          <SelectItem 
-                            key={committee.id} 
-                            value={committee.id}
-                            data-testid={`select-committee-${committee.id}`}
-                          >
-                            {committee.name} ({committee.code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!inviteToken && (
+                <FormField
+                  control={form.control}
+                  name="committeeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Comité</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-committee">
+                            <SelectValue placeholder={committeesLoading ? "Cargando..." : "Selecciona tu comité"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {committees?.map((committee) => (
+                            <SelectItem 
+                              key={committee.id} 
+                              value={committee.id}
+                              data-testid={`select-committee-${committee.id}`}
+                            >
+                              {committee.name} ({committee.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <Button
                 type="submit"
                 className="w-full"
@@ -223,7 +323,7 @@ export default function RegisterPage() {
                 {registerMutation.isPending && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Crear Cuenta
+                {inviteToken ? "Unirse al Equipo" : "Crear Cuenta"}
               </Button>
             </form>
           </Form>
