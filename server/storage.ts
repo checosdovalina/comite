@@ -10,6 +10,8 @@ import {
   counselorTeams,
   counselorTeamMembers,
   teamInvites,
+  pushSubscriptions,
+  scheduledNotifications,
   type Committee,
   type InsertCommittee,
   type CommitteeMember,
@@ -32,6 +34,10 @@ import {
   type InsertCounselorTeamMember,
   type TeamInvite,
   type InsertTeamInvite,
+  type PushSubscription,
+  type InsertPushSubscription,
+  type ScheduledNotification,
+  type InsertScheduledNotification,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -119,6 +125,22 @@ export interface IStorage {
   getPendingInviteByEmail(email: string): Promise<(TeamInvite & { team?: CounselorTeam })[]>;
   createTeamInvite(data: InsertTeamInvite): Promise<TeamInvite>;
   updateTeamInviteStatus(id: string, status: string, acceptedAt?: Date): Promise<TeamInvite | undefined>;
+  
+  // Push Subscriptions
+  getPushSubscriptions(userId: string): Promise<PushSubscription[]>;
+  getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined>;
+  getAllActivePushSubscriptions(): Promise<PushSubscription[]>;
+  createPushSubscription(data: InsertPushSubscription): Promise<PushSubscription>;
+  deletePushSubscription(endpoint: string): Promise<boolean>;
+  deactivatePushSubscription(endpoint: string): Promise<boolean>;
+  
+  // Scheduled Notifications
+  getScheduledNotification(id: string): Promise<ScheduledNotification | undefined>;
+  getPendingNotifications(): Promise<ScheduledNotification[]>;
+  getNotificationByReference(userId: string, type: string, referenceId: string): Promise<ScheduledNotification | undefined>;
+  createScheduledNotification(data: InsertScheduledNotification): Promise<ScheduledNotification>;
+  updateNotificationStatus(id: string, status: string, sentAt?: Date): Promise<ScheduledNotification | undefined>;
+  snoozeNotification(id: string, newScheduledAt: Date): Promise<ScheduledNotification | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -928,6 +950,118 @@ export class DatabaseStorage implements IStorage {
       .update(teamInvites)
       .set(updateData)
       .where(eq(teamInvites.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Push Subscriptions
+  async getPushSubscriptions(userId: string): Promise<PushSubscription[]> {
+    return await db.select().from(pushSubscriptions).where(
+      and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.isActive, true))
+    );
+  }
+
+  async getPushSubscriptionByEndpoint(endpoint: string): Promise<PushSubscription | undefined> {
+    const [subscription] = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+    return subscription;
+  }
+
+  async getAllActivePushSubscriptions(): Promise<PushSubscription[]> {
+    return await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.isActive, true));
+  }
+
+  async createPushSubscription(data: InsertPushSubscription): Promise<PushSubscription> {
+    const existing = await this.getPushSubscriptionByEndpoint(data.endpoint);
+    if (existing) {
+      const [updated] = await db
+        .update(pushSubscriptions)
+        .set({ ...data, isActive: true })
+        .where(eq(pushSubscriptions.endpoint, data.endpoint))
+        .returning();
+      return updated;
+    }
+    const [subscription] = await db.insert(pushSubscriptions).values(data).returning();
+    return subscription;
+  }
+
+  async deletePushSubscription(endpoint: string): Promise<boolean> {
+    const result = await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+    return true;
+  }
+
+  async deactivatePushSubscription(endpoint: string): Promise<boolean> {
+    await db.update(pushSubscriptions).set({ isActive: false }).where(eq(pushSubscriptions.endpoint, endpoint));
+    return true;
+  }
+
+  // Scheduled Notifications
+  async getScheduledNotification(id: string): Promise<ScheduledNotification | undefined> {
+    const [notification] = await db.select().from(scheduledNotifications).where(eq(scheduledNotifications.id, id));
+    return notification;
+  }
+
+  async getPendingNotifications(): Promise<ScheduledNotification[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(scheduledNotifications)
+      .where(
+        and(
+          eq(scheduledNotifications.status, "pending"),
+          lte(scheduledNotifications.scheduledAt, now)
+        )
+      );
+  }
+
+  async getNotificationByReference(userId: string, type: string, referenceId: string): Promise<ScheduledNotification | undefined> {
+    const [notification] = await db
+      .select()
+      .from(scheduledNotifications)
+      .where(
+        and(
+          eq(scheduledNotifications.userId, userId),
+          eq(scheduledNotifications.type, type as any),
+          eq(scheduledNotifications.referenceId, referenceId),
+          eq(scheduledNotifications.status, "pending")
+        )
+      );
+    return notification;
+  }
+
+  async createScheduledNotification(data: InsertScheduledNotification): Promise<ScheduledNotification> {
+    const [notification] = await db.insert(scheduledNotifications).values(data).returning();
+    return notification;
+  }
+
+  async updateNotificationStatus(id: string, status: string, sentAt?: Date): Promise<ScheduledNotification | undefined> {
+    const updateData: Record<string, any> = { status };
+    if (sentAt) {
+      updateData.sentAt = sentAt;
+    }
+    if (status === "confirmed" || status === "dismissed") {
+      updateData.actionTakenAt = new Date();
+    }
+    const [updated] = await db
+      .update(scheduledNotifications)
+      .set(updateData)
+      .where(eq(scheduledNotifications.id, id))
+      .returning();
+    return updated;
+  }
+
+  async snoozeNotification(id: string, newScheduledAt: Date): Promise<ScheduledNotification | undefined> {
+    const notification = await this.getScheduledNotification(id);
+    if (!notification) return undefined;
+    
+    const [updated] = await db
+      .update(scheduledNotifications)
+      .set({
+        status: "pending",
+        scheduledAt: newScheduledAt,
+        snoozeCount: notification.snoozeCount + 1,
+        sentAt: null,
+      })
+      .where(eq(scheduledNotifications.id, id))
       .returning();
     return updated;
   }

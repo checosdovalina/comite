@@ -220,6 +220,49 @@ export const teamInviteRelations = relations(teamInvites, ({ one }) => ({
   }),
 }));
 
+// Push Subscriptions - for storing push notification subscriptions per device
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Scheduled Notifications - for tracking notification status and actions
+export const notificationStatusEnum = pgEnum("notification_status", ["pending", "sent", "failed", "snoozed", "confirmed", "dismissed"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["attendance_reminder", "activity_reminder"]);
+
+export const scheduledNotifications = pgTable("scheduled_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  type: notificationTypeEnum("type").notNull(),
+  referenceId: varchar("reference_id").notNull(), // attendance_slot id or member_activity id
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  scheduledAt: timestamp("scheduled_at").notNull(),
+  sentAt: timestamp("sent_at"),
+  status: notificationStatusEnum("status").notNull().default("pending"),
+  snoozeCount: integer("snooze_count").notNull().default(0),
+  actionTakenAt: timestamp("action_taken_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertScheduledNotificationSchema = createInsertSchema(scheduledNotifications).omit({
+  id: true,
+  sentAt: true,
+  actionTakenAt: true,
+  createdAt: true,
+});
+
 export const insertTeamInviteSchema = createInsertSchema(teamInvites).omit({
   id: true,
   createdAt: true,
@@ -302,3 +345,7 @@ export type CounselorTeamMember = typeof counselorTeamMembers.$inferSelect;
 export type InsertCounselorTeamMember = z.infer<typeof insertCounselorTeamMemberSchema>;
 export type TeamInvite = typeof teamInvites.$inferSelect;
 export type InsertTeamInvite = z.infer<typeof insertTeamInviteSchema>;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type ScheduledNotification = typeof scheduledNotifications.$inferSelect;
+export type InsertScheduledNotification = z.infer<typeof insertScheduledNotificationSchema>;
