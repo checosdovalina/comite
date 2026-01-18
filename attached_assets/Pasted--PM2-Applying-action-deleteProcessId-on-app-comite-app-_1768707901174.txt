@@ -1,0 +1,44 @@
+[PM2] Applying action deleteProcessId on app [comite-app](ids: [ 1 ])
+[PM2] [comite-app](1) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ sheltiescrm        │ fork     │ 6    │ online    │ 0%       │ 68.6mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[PM2][WARN] Applications comite-app not running, starting...
+[PM2] App [comite-app] launched (1 instances)
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 2  │ comite-app         │ fork     │ 0    │ online    │ 0%       │ 17.8mb   │
+│ 0  │ sheltiescrm        │ fork     │ 6    │ online    │ 0%       │ 68.6mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+[TAILING] Tailing last 10 lines for [comite-app] process (change the value with --lines option)
+/root/.pm2/logs/comite-app-error.log last 10 lines:
+2|comite-a |     at Object.<anonymous> (/var/www/comite/dist/index.cjs:76:108253)
+2|comite-a |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+2|comite-a |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+2|comite-a |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+2|comite-a |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+2|comite-a |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+2|comite-a |     at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:240:7)
+2|comite-a |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+2|comite-a |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2|comite-a |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+
+/root/.pm2/logs/comite-app-out.log last 10 lines:
+2|comite-a | 3:42:50 AM [express] serving on port 5001
+
+2|comite-app  | 3:43:05 AM [express] GET /api/auth/user 401 in 2ms :: {"message":"No autenticado"}
+2|comite-app  | 3:43:09 AM [express] GET /api/auth/user 401 in 2ms :: {"message":"No autenticado"}
+2|comite-app  | 3:43:37 AM [express] POST /api/auth/login 200 in 387ms :: {"id":"955216ec-35f5-445a-aa1f-974601bc0e4f","email":"checodovalina@gmail.com","firstName":"Sergio","lastName":"Dovalina Flores","isSuperAdmin":false}
+2|comite-app  | 3:43:37 AM [express] GET /api/auth/user 200 in 6ms :: {"id":"955216ec-35f5-445a-aa1f-974601bc0e4f","email":"checodovalina@gmail.com","firstName":"Sergio","lastName":"Dovalina Flores","profileImageUrl":null,"isSuperAdmin":false}
+2|comite-app  | 3:43:37 AM [express] GET /api/my-team-context 200 in 30ms :: {"isGeneralCouncilMember":true,"isTeamOwner":false,"isTeamAuxiliary":false,"teamId":null,"team":null}
+2|comite-app  | 3:43:37 AM [express] GET /api/committees 200 in 29ms :: [{"id":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","name":"Comite Distrital 8 Torreon","code":"COM-08","description":"","logoUrl":null,"isActive":true,"isGeneral":false,"usesShifts":true,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-06T21:55:48.754Z"},{"id":"c2c624a3-21ce-4f1c-b730-6617873612a5","name":"Instituto Electoral de Coahuila","code":"IEC-001","description":"","logoUrl":null,"isActive":true,"isGeneral":true,"usesShifts":false,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-11T22:53:25.744Z"}]
+2|comite-app  | 3:43:37 AM [express] GET /api/my-memberships 200 in 31ms :: [{"id":"a190a212-6cc6-427a-8e19-9e6afa36de85","committeeId":"c2c624a3-21ce-4f1c-b730-6617873612a5","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","isAdmin":true,"leadershipRole":"counselor","roleId":null,"isActive":true,"joinedAt":"2026-01-17T22:01:22.744Z","committee":{"id":"c2c624a3-21ce-4f1c-b730-6617873612a5","name":"Instituto Electoral de Coahuila","code":"IEC-001","description":"","logoUrl":null,"isActive":true,"isGeneral":true,"usesShifts":false,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-11T22:53:25.744Z"}},{"id":"e66a526a-3bee-4292-8d34-aeb17a3fd272","committeeId":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","userId":"955216ec-35f5-445a-aa1f-974601bc0e4f","isAdmin":true,"leadershipRole":"none","roleId":"88bbf16b-4a3d-460f-9172-6df90bea4a5a","isActive":true,"joinedAt":"2026-01-06T21:56:53.213Z","committee":{"id":"f74b1538-4b80-42bb-aedd-5c8f33ecee49","name":"Comite Distrital 8 Torreon","code":"COM-08","description":"","logoUrl":null,"isActive":true,"isGeneral":false,"usesShifts":true,"isRestricted":false,"workingDays":["monday","tuesday","wednesday","thursday","friday"],"morningStart":"09:00","morningEnd":"13:00","afternoonStart":"14:00","afternoonEnd":"18:00","maxPerShift":2,"createdAt":"2026-01-06T21:55:48.754Z"}}]
+2|comite-app  | 3:43:37 AM [express] GET /api/upcoming-slots 200 in 32ms :: []
+
