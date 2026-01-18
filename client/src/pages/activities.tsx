@@ -117,13 +117,13 @@ export default function ActivitiesPage() {
     queryKey: ["/api/my-teams"],
   });
 
-  // Auto-set team filter for team auxiliaries in General Council
-  const effectiveTeamId = teamContext?.isTeamAuxiliary && teamContext.teamId 
+  // Team auxiliaries and counselors in General Council are restricted to team view only
+  const isRestrictedToTeam = teamContext?.isTeamAuxiliary === true || teamContext?.isTeamOwner === true;
+
+  // Auto-set team filter for restricted users
+  const effectiveTeamId = isRestrictedToTeam && teamContext?.teamId 
     ? teamContext.teamId 
     : selectedTeamId;
-
-  // Team auxiliaries are restricted to team view only
-  const isRestrictedToTeam = teamContext?.isTeamAuxiliary === true;
 
   const { data: activities, isLoading: activitiesLoading } = useQuery<(MemberActivity & { committee?: Committee })[]>({
     queryKey: ["/api/activities", startDate, endDate],

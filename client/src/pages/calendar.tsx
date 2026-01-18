@@ -118,6 +118,14 @@ const activityTypeConfig: Record<string, { icon: typeof Users; color: string; la
   other: { icon: MoreHorizontal, color: "bg-gray-100 dark:bg-gray-900/30 text-gray-800 dark:text-gray-300", label: "Otro" },
 };
 
+type TeamContext = {
+  isGeneralCouncilMember: boolean;
+  isTeamOwner?: boolean;
+  isTeamAuxiliary: boolean;
+  teamId: string | null;
+  team: { id: string; name: string; committeeId: string } | null;
+};
+
 export default function CalendarPage() {
   const search = useSearch();
   const params = new URLSearchParams(search);
@@ -149,6 +157,19 @@ export default function CalendarPage() {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Fetch user's team context to determine if they're restricted to team view
+  const { data: teamContext, isLoading: teamContextLoading } = useQuery<TeamContext>({
+    queryKey: ["/api/my-team-context"],
+  });
+
+  // Team auxiliaries and counselors in General Council are restricted to team view only
+  const isRestrictedToTeam = teamContext?.isTeamAuxiliary === true || teamContext?.isTeamOwner === true;
+  
+  // Auto-set team filter for restricted users
+  const effectiveTeamId = isRestrictedToTeam && teamContext?.teamId 
+    ? teamContext.teamId 
+    : selectedTeamId;
+
   const { data: committees, isLoading: committeesLoading } = useQuery<Committee[]>({
     queryKey: ["/api/committees"],
   });
@@ -168,12 +189,14 @@ export default function CalendarPage() {
     queryKey: ["/api/my-attendances"],
   });
 
-  // Auto-select committee for non-superadmin users
+  // Auto-select committee for non-superadmin users or use team's committee for restricted users
   useEffect(() => {
-    if (!user?.isSuperAdmin && myMemberships && myMemberships.length > 0 && !selectedCommittee) {
+    if (isRestrictedToTeam && teamContext?.team?.committeeId) {
+      setSelectedCommittee(teamContext.team.committeeId);
+    } else if (!user?.isSuperAdmin && myMemberships && myMemberships.length > 0 && !selectedCommittee) {
       setSelectedCommittee(myMemberships[0].committeeId);
     }
-  }, [user?.isSuperAdmin, myMemberships, selectedCommittee]);
+  }, [user?.isSuperAdmin, myMemberships, selectedCommittee, isRestrictedToTeam, teamContext]);
 
   // Calculate date range based on view mode
   const getDateRange = () => {
@@ -219,35 +242,35 @@ export default function CalendarPage() {
       if (!response.ok) throw new Error("Failed to fetch calendar activities");
       return response.json();
     },
-    enabled: !!selectedCommittee && !selectedTeamId,
+    enabled: !!selectedCommittee && !effectiveTeamId,
   });
 
   const { data: teamActivities } = useQuery<CalendarActivity[]>({
-    queryKey: ["/api/teams", selectedTeamId, "activities", format(dateRange.start, "yyyy-MM-dd"), format(dateRange.end, "yyyy-MM-dd")],
+    queryKey: ["/api/teams", effectiveTeamId, "activities", format(dateRange.start, "yyyy-MM-dd"), format(dateRange.end, "yyyy-MM-dd")],
     queryFn: async () => {
-      if (!selectedTeamId) return [];
+      if (!effectiveTeamId) return [];
       const response = await fetch(
-        `/api/teams/${selectedTeamId}/activities?startDate=${format(dateRange.start, "yyyy-MM-dd")}&endDate=${format(dateRange.end, "yyyy-MM-dd")}`
+        `/api/teams/${effectiveTeamId}/activities?startDate=${format(dateRange.start, "yyyy-MM-dd")}&endDate=${format(dateRange.end, "yyyy-MM-dd")}`
       );
       if (!response.ok) throw new Error("Failed to fetch team activities");
       return response.json();
     },
-    enabled: !!selectedTeamId,
+    enabled: !!effectiveTeamId,
   });
 
   const { data: selectedTeamData } = useQuery<{ id: string; name: string; committeeId: string }>({
-    queryKey: ["/api/teams", selectedTeamId],
+    queryKey: ["/api/teams", effectiveTeamId],
     queryFn: async () => {
-      if (!selectedTeamId) return null;
-      const response = await fetch(`/api/teams/${selectedTeamId}`);
+      if (!effectiveTeamId) return null;
+      const response = await fetch(`/api/teams/${effectiveTeamId}`);
       if (!response.ok) throw new Error("Failed to fetch team");
       return response.json();
     },
-    enabled: !!selectedTeamId,
+    enabled: !!effectiveTeamId,
   });
 
   // Merge activities - use team activities if in team view, otherwise use committee activities
-  const displayActivities = selectedTeamId ? (teamActivities || []) : (calendarActivities || []);
+  const displayActivities = effectiveTeamId ? (teamActivities || []) : (calendarActivities || []);
 
   const markAttendanceMutation = useMutation({
     mutationFn: async (data: { committeeId: string; date: string; shift: string }) => {
@@ -358,7 +381,7 @@ export default function CalendarPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/committees", selectedCommittee, "calendar-activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activities"] });
       // Also invalidate team activities if in team view
-      if (selectedTeamId) {
+      if (effectiveTeamId) {
         queryClient.invalidateQueries({ 
           predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === "/api/teams" && query.queryKey[2] === "activities"
         });
@@ -398,7 +421,7 @@ export default function CalendarPage() {
     }
     
     // Use selected committee, or team's committee if in team view
-    const committeeToUse = selectedCommittee || selectedTeamData?.committeeId;
+    const committeeToUse = selectedCommittee || selectedTeamData?.committeeId || teamContext?.team?.committeeId;
     if (!committeeToUse) {
       toast({ title: "Error", description: "Selecciona un comité", variant: "destructive" });
       return;
@@ -408,7 +431,7 @@ export default function CalendarPage() {
       ...activityFormData,
       committeeId: committeeToUse,
       activityDate: format(selectedDate, "yyyy-MM-dd"),
-      teamId: selectedTeamId || null,
+      teamId: effectiveTeamId || null,
     });
   };
 
@@ -711,14 +734,18 @@ export default function CalendarPage() {
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold" data-testid="text-page-title">
-            {selectedTeamId && selectedTeamData
+            {isRestrictedToTeam && effectiveTeamId
+              ? `Calendario de Mi Equipo`
+              : effectiveTeamId && selectedTeamData
               ? `Calendario de ${selectedTeamData.name}`
               : selectedCommitteeData?.usesShifts !== false 
                 ? "Registrar Turno" 
                 : "Calendario de Actividades"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {selectedTeamId 
+            {isRestrictedToTeam && effectiveTeamId
+              ? "Actividades de tu equipo de consejería"
+              : effectiveTeamId 
               ? "Actividades de tu equipo de consejería"
               : selectedCommitteeData?.usesShifts !== false 
                 ? "Selecciona una fecha para registrar tu turno"
@@ -726,7 +753,13 @@ export default function CalendarPage() {
           </p>
         </div>
 
-        {selectedTeamId ? (
+        {isRestrictedToTeam && effectiveTeamId ? (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              Equipo: {teamContext?.team?.name || selectedTeamData?.name || "Cargando..."}
+            </Badge>
+          </div>
+        ) : selectedTeamId ? (
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-sm">
               Equipo: {selectedTeamData?.name || "Cargando..."}
