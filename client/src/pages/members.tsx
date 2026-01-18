@@ -105,6 +105,35 @@ export default function MembersPage() {
     },
   });
 
+  const updateLeadershipRoleMutation = useMutation({
+    mutationFn: async ({ memberId, leadershipRole }: { memberId: string; leadershipRole: string }) => {
+      const response = await apiRequest("PATCH", `/api/committee-members/${memberId}`, { leadershipRole });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/all-members"] });
+      toast({
+        title: "Rol de liderazgo actualizado",
+        description: "El rol de liderazgo se ha actualizado correctamente",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo actualizar el rol de liderazgo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const leadershipRoleOptions = [
+    { value: "none", label: "Sin liderazgo" },
+    { value: "counselor", label: "Consejero" },
+    { value: "counselor_president", label: "Consejero Presidente" },
+    { value: "counselor_secretary", label: "Consejero Secretario" },
+    { value: "secretary", label: "Secretario" },
+  ];
+
   const getRoleDisplayName = (member: MemberWithDetails) => {
     if (member.role) {
       return member.role.displayName;
@@ -271,6 +300,7 @@ export default function MembersPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Comité</TableHead>
                   <TableHead>Admin</TableHead>
+                  <TableHead>Liderazgo</TableHead>
                   <TableHead>Cargo</TableHead>
                   <TableHead>Estado</TableHead>
                 </TableRow>
@@ -318,6 +348,34 @@ export default function MembersPage() {
                           <Shield className="h-4 w-4 text-primary" />
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {isSuperAdmin ? (
+                        <Select
+                          value={member.leadershipRole || "none"}
+                          onValueChange={(value) =>
+                            updateLeadershipRoleMutation.mutate({ 
+                              memberId: member.id, 
+                              leadershipRole: value 
+                            })
+                          }
+                        >
+                          <SelectTrigger className="w-40" data-testid={`select-leadership-${member.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {leadershipRoleOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="outline">
+                          {leadershipRoleOptions.find(o => o.value === member.leadershipRole)?.label || "Sin liderazgo"}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {isSuperAdmin ? (
