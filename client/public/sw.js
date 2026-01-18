@@ -97,18 +97,27 @@ self.addEventListener('notificationclick', (event) => {
         })
         .then(response => {
           if (response.ok) {
-            // Show confirmation message
-            return self.registration.showNotification(
-              action === 'confirm' ? 'Confirmado' : 'Pospuesto',
-              {
-                body: action === 'confirm' 
-                  ? 'Tu asistencia ha sido confirmada' 
-                  : `Recordatorio pospuesto ${body.minutes || 15} minutos`,
-                icon: '/favicon.png',
-                tag: 'action-confirmation',
-                requireInteraction: false
-              }
-            );
+            // Show appropriate confirmation message based on action type
+            let title, messageBody;
+            if (action === 'confirm') {
+              title = 'Confirmado';
+              messageBody = 'Tu asistencia ha sido confirmada';
+            } else if (action.startsWith('snooze-')) {
+              title = 'Pospuesto';
+              messageBody = `Recordatorio pospuesto ${body.minutes || 15} minutos`;
+            } else if (action === 'dismiss') {
+              title = 'Descartado';
+              messageBody = 'La notificación ha sido descartada';
+            } else {
+              return; // Unknown action, no confirmation needed
+            }
+            
+            return self.registration.showNotification(title, {
+              body: messageBody,
+              icon: '/favicon.png',
+              tag: 'action-confirmation',
+              requireInteraction: false
+            });
           }
         })
         .catch(err => console.error('Error handling notification action:', err))
