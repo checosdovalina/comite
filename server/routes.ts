@@ -45,9 +45,11 @@ async function isUserCounselorOfGeneralCommittee(userId: string): Promise<boolea
   return false;
 }
 
-// Check if user is a team auxiliary in a General Council committee
-// Returns the team ID they're restricted to, or null if they're not restricted
-async function getUserTeamRestriction(userId: string): Promise<{ isRestricted: boolean; teamId: string | null }> {
+// Check if user is in a team within a General Council committee
+// Returns the team ID they should be filtered to
+// isRestricted: true for auxiliaries (limited sidebar), false for owners
+// teamId: the team to filter activities to (both owners and auxiliaries)
+async function getUserTeamRestriction(userId: string): Promise<{ isRestricted: boolean; teamId: string | null; isTeamOwner: boolean }> {
   const memberships = await storage.getUserMemberships(userId);
   const teams = await storage.getUserTeams(userId);
   
@@ -55,23 +57,23 @@ async function getUserTeamRestriction(userId: string): Promise<{ isRestricted: b
   const generalCouncilMembership = memberships.find(m => m.committee?.isGeneral);
   
   if (!generalCouncilMembership) {
-    return { isRestricted: false, teamId: null };
+    return { isRestricted: false, teamId: null, isTeamOwner: false };
   }
   
-  // Check if user is a team owner (counselor) - not restricted
+  // Check if user is a team owner (counselor) - not sidebar restricted but still filtered to their team
   const ownedTeam = teams.find(t => t.ownerUserId === userId && t.committee?.isGeneral);
   if (ownedTeam) {
-    return { isRestricted: false, teamId: null };
+    return { isRestricted: false, teamId: ownedTeam.id, isTeamOwner: true };
   }
   
-  // Check if user is a member (auxiliary) of a team in General Council - restricted
+  // Check if user is a member (auxiliary) of a team in General Council - restricted sidebar and filtered to team
   const memberTeam = teams.find(t => t.ownerUserId !== userId && t.committee?.isGeneral);
   if (memberTeam) {
-    return { isRestricted: true, teamId: memberTeam.id };
+    return { isRestricted: true, teamId: memberTeam.id, isTeamOwner: false };
   }
   
-  // In General Council but not in any team - not restricted
-  return { isRestricted: false, teamId: null };
+  // In General Council but not in any team - not restricted (superadmin, etc.)
+  return { isRestricted: false, teamId: null, isTeamOwner: false };
 }
 
 function isSuperAdmin(req: any): boolean {
@@ -737,9 +739,10 @@ export async function registerRoutes(
       const userId = req.user.id;
       const { startDate, endDate } = req.query;
       
-      // Check if user is a team auxiliary in General Council - restrict to team activities only
+      // Check if user is in a team (owner or auxiliary) - filter to their team's activities only
       const restriction = await getUserTeamRestriction(userId);
-      if (restriction.isRestricted && restriction.teamId) {
+      if (restriction.teamId) {
+        // Both team owners and auxiliaries only see their team's activities
         const teamActivities = await storage.getTeamActivities(restriction.teamId, startDate, endDate);
         return res.json(teamActivities);
       }
@@ -763,6 +766,13 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Not authorized to view this committee's activities" });
       }
       
+      // Check if user is in a team - filter to their team's activities only
+      const restriction = await getUserTeamRestriction(userId);
+      if (restriction.teamId) {
+        const teamActivities = await storage.getTeamActivities(restriction.teamId, startDate, endDate);
+        return res.json(teamActivities);
+      }
+      
       const activities = await storage.getMemberActivities(committeeId, memberId, startDate, endDate);
       res.json(activities);
     } catch (error) {
@@ -781,9 +791,9 @@ export async function registerRoutes(
         return res.status(403).json({ message: "You must be a member of this committee" });
       }
       
-      // Team auxiliaries must create activities for their team only
+      // Team members (owners and auxiliaries) must create activities for their team
       const restriction = await getUserTeamRestriction(userId);
-      if (restriction.isRestricted && restriction.teamId) {
+      if (restriction.teamId) {
         data.teamId = restriction.teamId;
       }
       
@@ -809,9 +819,9 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Activity not found" });
       }
       
-      // Team auxiliaries can only edit activities from their team
+      // Team members can only edit activities from their team
       const restriction = await getUserTeamRestriction(userId);
-      if (restriction.isRestricted && restriction.teamId) {
+      if (restriction.teamId) {
         if (existingActivity.teamId !== restriction.teamId) {
           return res.status(403).json({ message: "You can only edit activities from your team" });
         }
@@ -837,9 +847,9 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Activity not found" });
       }
       
-      // Team auxiliaries can only delete activities from their team
+      // Team members can only delete activities from their team
       const restriction = await getUserTeamRestriction(userId);
-      if (restriction.isRestricted && restriction.teamId) {
+      if (restriction.teamId) {
         if (existingActivity.teamId !== restriction.teamId) {
           return res.status(403).json({ message: "You can only delete activities from your team" });
         }
@@ -865,6 +875,15 @@ export async function registerRoutes(
       const isMember = await isUserMemberOfCommittee(userId, committeeId);
       if (!isMember) {
         return res.status(403).json({ message: "Not authorized to view this committee's activities" });
+      }
+      
+      // Check if user is in a team - filter to their team's activities only
+      const restriction = await getUserTeamRestriction(userId);
+      if (restriction.teamId) {
+        const teamActivities = await storage.getTeamActivities(restriction.teamId, startDate, endDate);
+        // Filter to only calendar-visible activities
+        const calendarActivities = teamActivities.filter((a: any) => a.showOnCalendar);
+        return res.json(calendarActivities);
       }
       
       const activities = await storage.getCalendarActivities(committeeId, startDate, endDate);
