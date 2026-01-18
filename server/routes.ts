@@ -1692,7 +1692,17 @@ export async function registerRoutes(
         JSON.stringify({
           title: "Prueba de Notificación",
           body: "Las notificaciones push están funcionando correctamente.",
-          data: { url: "/" }
+          icon: "/icons/icon-192x192.png",
+          badge: "/icons/icon-72x72.png",
+          data: { 
+            url: "/",
+            notificationId: "test",
+            type: "test"
+          },
+          actions: [
+            { action: "confirm", title: "Confirmar" },
+            { action: "snooze-15", title: "Posponer 15 min" }
+          ]
         })
       );
       
@@ -1700,6 +1710,76 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error sending test notification:", error);
       res.status(500).json({ message: "Failed to send test notification" });
+    }
+  });
+
+  // Notification action endpoints
+  app.post("/api/notifications/:id/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      
+      const notification = await storage.getScheduledNotification(id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notificación no encontrada" });
+      }
+      
+      if (notification.userId !== userId) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+      
+      await storage.updateNotificationStatus(id, "confirmed");
+      res.json({ message: "Asistencia confirmada" });
+    } catch (error) {
+      console.error("Error confirming notification:", error);
+      res.status(500).json({ message: "Error al confirmar" });
+    }
+  });
+
+  app.post("/api/notifications/:id/snooze", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      const { minutes = 15 } = req.body;
+      
+      const notification = await storage.getScheduledNotification(id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notificación no encontrada" });
+      }
+      
+      if (notification.userId !== userId) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+      
+      const newScheduledAt = new Date(Date.now() + minutes * 60 * 1000);
+      await storage.snoozeNotification(id, newScheduledAt);
+      
+      res.json({ message: `Recordatorio pospuesto ${minutes} minutos` });
+    } catch (error) {
+      console.error("Error snoozing notification:", error);
+      res.status(500).json({ message: "Error al posponer" });
+    }
+  });
+
+  app.post("/api/notifications/:id/dismiss", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      
+      const notification = await storage.getScheduledNotification(id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notificación no encontrada" });
+      }
+      
+      if (notification.userId !== userId) {
+        return res.status(403).json({ message: "No autorizado" });
+      }
+      
+      await storage.updateNotificationStatus(id, "dismissed");
+      res.json({ message: "Notificación descartada" });
+    } catch (error) {
+      console.error("Error dismissing notification:", error);
+      res.status(500).json({ message: "Error al descartar" });
     }
   });
 
@@ -1748,14 +1828,51 @@ async function sendScheduledNotifications() {
           const notifKey = getNotificationKey(prefs.userId, "attendance", attendance.id, reminderMinutes);
           if (sentNotifications.has(notifKey)) continue;
           
+          // Create scheduled notification record for tracking
+          const existingNotif = await storage.getNotificationByReference(prefs.userId, "attendance_reminder", attendance.id);
+          let notificationId = existingNotif?.id;
+          
+          if (!existingNotif) {
+            const scheduledNotif = await storage.createScheduledNotification({
+              userId: prefs.userId,
+              type: "attendance_reminder",
+              referenceId: attendance.id,
+              title: "Recordatorio de Turno",
+              body: `Tu turno comienza en ${reminderMinutes} minutos`,
+              scheduledAt: new Date(),
+              status: "pending",
+              snoozeCount: 0,
+            });
+            notificationId = scheduledNotif.id;
+          }
+          
           await webpush.sendNotification(
             subscription,
             JSON.stringify({
               title: "Recordatorio de Turno",
               body: `Tu turno comienza en ${reminderMinutes} minutos`,
-              data: { url: "/attendances" }
+              icon: "/icons/icon-192x192.png",
+              badge: "/icons/icon-72x72.png",
+              tag: `attendance-${attendance.id}`,
+              renotify: true,
+              requireInteraction: true,
+              data: { 
+                url: "/attendances",
+                notificationId,
+                type: "attendance_reminder",
+                referenceId: attendance.id
+              },
+              actions: [
+                { action: "confirm", title: "Confirmar" },
+                { action: "snooze-15", title: "+15 min" },
+                { action: "snooze-30", title: "+30 min" }
+              ]
             })
           );
+          
+          if (notificationId) {
+            await storage.updateNotificationStatus(notificationId, "sent", new Date());
+          }
           sentNotifications.set(notifKey, Date.now());
         }
       }
@@ -1767,14 +1884,51 @@ async function sendScheduledNotifications() {
           const notifKey = getNotificationKey(prefs.userId, "activity", activity.id, reminderMinutes);
           if (sentNotifications.has(notifKey)) continue;
           
+          // Create scheduled notification record for tracking
+          const existingNotif = await storage.getNotificationByReference(prefs.userId, "activity_reminder", activity.id);
+          let notificationId = existingNotif?.id;
+          
+          if (!existingNotif) {
+            const scheduledNotif = await storage.createScheduledNotification({
+              userId: prefs.userId,
+              type: "activity_reminder",
+              referenceId: activity.id,
+              title: "Recordatorio de Actividad",
+              body: `${activity.title} - en ${reminderMinutes} minutos`,
+              scheduledAt: new Date(),
+              status: "pending",
+              snoozeCount: 0,
+            });
+            notificationId = scheduledNotif.id;
+          }
+          
           await webpush.sendNotification(
             subscription,
             JSON.stringify({
               title: "Recordatorio de Actividad",
               body: `${activity.title} - en ${reminderMinutes} minutos`,
-              data: { url: "/activities" }
+              icon: "/icons/icon-192x192.png",
+              badge: "/icons/icon-72x72.png",
+              tag: `activity-${activity.id}`,
+              renotify: true,
+              requireInteraction: true,
+              data: { 
+                url: "/activities",
+                notificationId,
+                type: "activity_reminder",
+                referenceId: activity.id
+              },
+              actions: [
+                { action: "confirm", title: "Confirmar" },
+                { action: "snooze-15", title: "+15 min" },
+                { action: "snooze-30", title: "+30 min" }
+              ]
             })
           );
+          
+          if (notificationId) {
+            await storage.updateNotificationStatus(notificationId, "sent", new Date());
+          }
           sentNotifications.set(notifKey, Date.now());
         }
       }

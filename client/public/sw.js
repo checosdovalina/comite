@@ -50,9 +50,12 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Comités Distritales';
   const options = {
     body: data.body || 'Tienes una nueva notificación',
-    icon: '/favicon.png',
-    badge: '/favicon.png',
-    vibrate: [100, 50, 100],
+    icon: data.icon || '/favicon.png',
+    badge: data.badge || '/favicon.png',
+    vibrate: [200, 100, 200],
+    tag: data.tag || 'default',
+    renotify: data.renotify || false,
+    requireInteraction: data.requireInteraction || false,
     data: data.data || {},
     actions: data.actions || []
   };
@@ -65,7 +68,57 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   
-  const urlToOpen = event.notification.data?.url || '/';
+  const notificationData = event.notification.data || {};
+  const action = event.action;
+  const notificationId = notificationData.notificationId;
+  
+  // Handle action buttons
+  if (action && notificationId && notificationId !== 'test') {
+    let apiUrl = '';
+    let body = {};
+    
+    if (action === 'confirm') {
+      apiUrl = `/api/notifications/${notificationId}/confirm`;
+    } else if (action.startsWith('snooze-')) {
+      const minutes = parseInt(action.split('-')[1]) || 15;
+      apiUrl = `/api/notifications/${notificationId}/snooze`;
+      body = { minutes };
+    } else if (action === 'dismiss') {
+      apiUrl = `/api/notifications/${notificationId}/dismiss`;
+    }
+    
+    if (apiUrl) {
+      event.waitUntil(
+        fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          credentials: 'include'
+        })
+        .then(response => {
+          if (response.ok) {
+            // Show confirmation message
+            return self.registration.showNotification(
+              action === 'confirm' ? 'Confirmado' : 'Pospuesto',
+              {
+                body: action === 'confirm' 
+                  ? 'Tu asistencia ha sido confirmada' 
+                  : `Recordatorio pospuesto ${body.minutes || 15} minutos`,
+                icon: '/favicon.png',
+                tag: 'action-confirmation',
+                requireInteraction: false
+              }
+            );
+          }
+        })
+        .catch(err => console.error('Error handling notification action:', err))
+      );
+      return;
+    }
+  }
+  
+  // Default: open the app at the specified URL
+  const urlToOpen = notificationData.url || '/';
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
