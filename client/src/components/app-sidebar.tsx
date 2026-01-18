@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,14 @@ const adminNavItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { setOpenMobile, isMobile } = useSidebar();
+
+  // Close sidebar on mobile after navigation
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   // Fetch team context to determine if user is a team auxiliary (restricted view)
   const { data: teamContext } = useQuery<TeamContext>({
@@ -143,7 +152,7 @@ export function AppSidebar() {
                     asChild
                     isActive={location === item.url}
                   >
-                    <Link href={item.url} data-testid={`nav-${item.url.replace("/", "") || "home"}`}>
+                    <Link href={item.url} onClick={handleNavClick} data-testid={`nav-${item.url.replace("/", "") || "home"}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -165,7 +174,7 @@ export function AppSidebar() {
                     asChild
                     isActive={location === item.url}
                   >
-                    <Link href={item.url} data-testid={`nav-${item.url.replace("/", "")}`}>
+                    <Link href={item.url} onClick={handleNavClick} data-testid={`nav-${item.url.replace("/", "")}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -187,7 +196,7 @@ export function AppSidebar() {
                     asChild
                     isActive={location === "/admin"}
                   >
-                    <Link href="/admin" data-testid="nav-admin">
+                    <Link href="/admin" onClick={handleNavClick} data-testid="nav-admin">
                       <Shield className="h-4 w-4" />
                       <span>Administración</span>
                     </Link>
