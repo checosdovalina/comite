@@ -269,6 +269,32 @@ export const scheduledNotifications = pgTable("scheduled_notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Documents - files and documents uploaded by team members
+export const documents = pgTable("documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").references(() => counselorTeams.id, { onDelete: "cascade" }),
+  committeeId: varchar("committee_id").references(() => committees.id, { onDelete: "cascade" }),
+  uploadedByUserId: varchar("uploaded_by_user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  objectPath: text("object_path").notNull(),
+  fileSize: integer("file_size"),
+  mimeType: text("mime_type"),
+  isPublic: boolean("is_public").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const documentRelations = relations(documents, ({ one }) => ({
+  team: one(counselorTeams, {
+    fields: [documents.teamId],
+    references: [counselorTeams.id],
+  }),
+  committee: one(committees, {
+    fields: [documents.committeeId],
+    references: [committees.id],
+  }),
+}));
+
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({
   id: true,
   createdAt: true,
@@ -347,6 +373,11 @@ export const insertCounselorTeamMemberSchema = createInsertSchema(counselorTeamM
   joinedAt: true,
 });
 
+export const insertDocumentSchema = createInsertSchema(documents).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type Committee = typeof committees.$inferSelect;
 export type InsertCommittee = z.infer<typeof insertCommitteeSchema>;
 export type CommitteeMember = typeof committeeMembers.$inferSelect;
@@ -375,3 +406,5 @@ export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 export type ScheduledNotification = typeof scheduledNotifications.$inferSelect;
 export type InsertScheduledNotification = z.infer<typeof insertScheduledNotificationSchema>;
+export type Document = typeof documents.$inferSelect;
+export type InsertDocument = z.infer<typeof insertDocumentSchema>;
