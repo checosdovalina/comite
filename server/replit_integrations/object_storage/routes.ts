@@ -1,5 +1,6 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { isAuthenticated } from "../../auth";
 
 /**
  * Register object storage routes for file uploads.
@@ -8,10 +9,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
  * 1. POST /api/uploads/request-url - Get a presigned URL for uploading
  * 2. The client then uploads directly to the presigned URL
  *
- * IMPORTANT: These are example routes. Customize based on your use case:
- * - Add authentication middleware for protected uploads
- * - Add file metadata storage (save to database after upload)
- * - Add ACL policies for access control
+ * IMPORTANT: These routes require authentication.
  */
 export function registerObjectStorageRoutes(app: Express): void {
   const objectStorageService = new ObjectStorageService();
@@ -94,7 +92,7 @@ export function registerObjectStorageRoutes(app: Express): void {
    *   "contentType": "application/pdf"
    * }
    */
-  app.post("/api/storage/upload-url", async (req, res) => {
+  app.post("/api/storage/upload-url", isAuthenticated, async (req, res) => {
     try {
       const { objectKey, contentType } = req.body;
 
@@ -120,8 +118,9 @@ export function registerObjectStorageRoutes(app: Express): void {
    * Download a file from object storage.
    *
    * GET /api/storage/download/:objectPath(*)
+   * Requires authentication for private files.
    */
-  app.get("/api/storage/download/:objectPath(*)", async (req, res) => {
+  app.get("/api/storage/download/:objectPath(*)", isAuthenticated, async (req, res) => {
     try {
       const objectPath = decodeURIComponent(req.params.objectPath);
       const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
