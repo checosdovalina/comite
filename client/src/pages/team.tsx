@@ -244,9 +244,9 @@ export default function TeamPage() {
     return (first + last).toUpperCase() || "U";
   };
 
-  // Roles that can create and manage teams with auxiliares
-  const rolesWithTeams = ["counselor_president", "counselor_secretary", "counselor", "secretary"];
-  const counselorMemberships = memberships?.filter(m => rolesWithTeams.includes(m.leadershipRole)) || [];
+  // Only counselors (consejeros electorales) can create and manage teams
+  const counselorRoles = ["counselor_president", "counselor_secretary", "counselor"];
+  const counselorMemberships = memberships?.filter(m => counselorRoles.includes(m.leadershipRole)) || [];
   const ownedTeams = myTeams?.filter(t => t.ownerUserId === user?.id) || [];
   const memberTeams = myTeams?.filter(t => t.ownerUserId !== user?.id) || [];
 
@@ -347,9 +347,9 @@ export default function TeamPage() {
             <Users className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No tienes acceso a equipos</h3>
             <p className="text-muted-foreground text-center max-w-md">
-              Los equipos están disponibles para Consejeros Presidentes, Consejeros, 
-              Consejeros Secretarios y Secretarios. Si tienes alguno de estos roles,
-              podrás crear tu equipo y agregar a tus auxiliares.
+              Los equipos están disponibles únicamente para Consejeros Electorales 
+              (Consejero Presidente, Consejeros y Consejeros Secretarios). 
+              Si tienes alguno de estos roles, podrás crear tu equipo y agregar a tus auxiliares.
             </p>
           </CardContent>
         </Card>
