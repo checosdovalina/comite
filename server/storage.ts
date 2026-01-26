@@ -109,6 +109,7 @@ export interface IStorage {
   getCounselorTeams(committeeId: string): Promise<(CounselorTeam & { owner?: User; memberCount?: number })[]>;
   getCounselorTeam(id: string): Promise<CounselorTeam | undefined>;
   getCounselorTeamByOwner(ownerUserId: string, committeeId: string): Promise<CounselorTeam | undefined>;
+  getCounselorTeamBySubdomain(subdomain: string): Promise<CounselorTeam | undefined>;
   getUserTeams(userId: string): Promise<(CounselorTeam & { committee?: Committee })[]>;
   createCounselorTeam(data: InsertCounselorTeam): Promise<CounselorTeam>;
   updateCounselorTeam(id: string, data: Partial<InsertCounselorTeam>): Promise<CounselorTeam | undefined>;
@@ -770,6 +771,18 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(counselorTeams.ownerUserId, ownerUserId),
         eq(counselorTeams.committeeId, committeeId),
+        eq(counselorTeams.isActive, true)
+      ));
+    return team;
+  }
+
+  async getCounselorTeamBySubdomain(subdomain: string): Promise<CounselorTeam | undefined> {
+    if (!subdomain) return undefined;
+    const [team] = await db
+      .select()
+      .from(counselorTeams)
+      .where(and(
+        eq(counselorTeams.subdomain, subdomain.toLowerCase()),
         eq(counselorTeams.isActive, true)
       ));
     return team;

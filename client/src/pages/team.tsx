@@ -68,6 +68,7 @@ export default function TeamPage() {
   const [teamDescription, setTeamDescription] = useState("");
   const [editTeamName, setEditTeamName] = useState("");
   const [editTeamDescription, setEditTeamDescription] = useState("");
+  const [editTeamSubdomain, setEditTeamSubdomain] = useState("");
 
   const { data: myTeams, isLoading: teamsLoading } = useQuery<TeamWithDetails[]>({
     queryKey: ["/api/my-teams"],
@@ -113,8 +114,8 @@ export default function TeamPage() {
   });
 
   const updateTeamMutation = useMutation({
-    mutationFn: async ({ teamId, name, description }: { teamId: string; name: string; description: string }) => {
-      const response = await apiRequest("PATCH", `/api/teams/${teamId}`, { name, description });
+    mutationFn: async ({ teamId, name, description, subdomain }: { teamId: string; name: string; description: string; subdomain?: string }) => {
+      const response = await apiRequest("PATCH", `/api/teams/${teamId}`, { name, description, subdomain });
       return response.json();
     },
     onSuccess: () => {
@@ -447,6 +448,7 @@ export default function TeamPage() {
                         onClick={() => {
                           setEditTeamName(selectedTeam.name);
                           setEditTeamDescription(selectedTeam.description || "");
+                          setEditTeamSubdomain((selectedTeam as any).subdomain || "");
                           setIsEditDialogOpen(true);
                         }}
                         data-testid="button-edit-team"
@@ -687,6 +689,22 @@ export default function TeamPage() {
                 data-testid="input-edit-team-description"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-team-subdomain">Subdominio (opcional)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="edit-team-subdomain"
+                  value={editTeamSubdomain}
+                  onChange={(e) => setEditTeamSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="mi-equipo"
+                  data-testid="input-edit-team-subdomain"
+                />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">.comite.dovexmx.com</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Permite acceder directamente a tu equipo con una URL personalizada
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -702,6 +720,7 @@ export default function TeamPage() {
                     teamId: selectedTeamId,
                     name: editTeamName,
                     description: editTeamDescription,
+                    subdomain: editTeamSubdomain || undefined,
                   });
                 }
               }}

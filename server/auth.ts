@@ -63,16 +63,22 @@ async function createUser(email: string, password: string, firstName: string, la
 }
 
 export function setupAuth(app: Express) {
+  // Check if we're behind a proxy (Nginx, etc.)
+  const isProduction = process.env.NODE_ENV === "production";
+  const isBehindProxy = process.env.BEHIND_PROXY === "true" || isProduction;
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "committee-secret-key",
     resave: false,
     saveUninitialized: false,
     rolling: true,
+    name: "comite.sid",
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isBehindProxy,
       sameSite: "lax",
+      path: "/",
     },
     store: new PgSession({
       conString: process.env.DATABASE_URL,
@@ -81,7 +87,10 @@ export function setupAuth(app: Express) {
     }),
   };
 
-  app.set("trust proxy", 1);
+  // Trust the first proxy when behind a reverse proxy
+  if (isBehindProxy) {
+    app.set("trust proxy", 1);
+  }
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -318,6 +327,34 @@ export function registerAuthRoutes(app: Express) {
       return res.status(401).json({ message: "No autenticado" });
     }
     res.json(req.user);
+  });
+
+  // Debug endpoint for session diagnostics
+  app.get("/api/auth/session-debug", (req, res) => {
+    const isProduction = process.env.NODE_ENV === "production";
+    const isBehindProxy = process.env.BEHIND_PROXY === "true" || isProduction;
+    
+    res.json({
+      sessionExists: !!req.session,
+      sessionId: req.sessionID ? req.sessionID.substring(0, 8) + "..." : null,
+      isAuthenticated: req.isAuthenticated(),
+      userId: req.user?.id || null,
+      cookies: {
+        received: Object.keys(req.cookies || {}).length > 0,
+        cookieHeader: req.headers.cookie ? "present" : "missing",
+      },
+      environment: {
+        nodeEnv: process.env.NODE_ENV || "not set",
+        behindProxy: isBehindProxy,
+        sessionSecret: process.env.SESSION_SECRET ? "configured" : "using default",
+      },
+      headers: {
+        host: req.headers.host,
+        xForwardedProto: req.headers["x-forwarded-proto"],
+        xForwardedFor: req.headers["x-forwarded-for"],
+        xSubdomain: req.headers["x-subdomain"],
+      },
+    });
   });
 }
 

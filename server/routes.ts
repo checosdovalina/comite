@@ -87,6 +87,51 @@ export async function registerRoutes(
   setupAuth(app);
   registerAuthRoutes(app);
 
+  // Subdomain detection middleware
+  app.use(async (req: any, res, next) => {
+    const subdomain = req.get('X-Subdomain') || '';
+    req.subdomain = subdomain.toLowerCase().trim();
+    
+    // If subdomain is provided, try to find the associated team
+    if (req.subdomain) {
+      const team = await storage.getCounselorTeamBySubdomain(req.subdomain);
+      req.subdomainTeam = team || null;
+    } else {
+      req.subdomainTeam = null;
+    }
+    
+    next();
+  });
+
+  // Get subdomain info (for frontend to know which team context)
+  app.get("/api/subdomain-info", async (req: any, res) => {
+    try {
+      const subdomain = req.subdomain;
+      
+      if (!subdomain) {
+        return res.json({ subdomain: null, team: null });
+      }
+      
+      const team = req.subdomainTeam;
+      
+      if (!team) {
+        return res.json({ subdomain, team: null, error: "Team not found for this subdomain" });
+      }
+      
+      res.json({
+        subdomain,
+        team: {
+          id: team.id,
+          name: team.name,
+          committeeId: team.committeeId,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching subdomain info:", error);
+      res.status(500).json({ message: "Failed to fetch subdomain info" });
+    }
+  });
+
   // Public endpoint for registration - get active committees
   app.get("/api/public/committees", async (req, res) => {
     try {
@@ -1229,8 +1274,21 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Only the team owner can update the team" });
       }
       
-      const { name, description } = req.body;
-      const updated = await storage.updateCounselorTeam(teamId, { name, description });
+      const { name, description, subdomain } = req.body;
+      
+      // If subdomain is provided, validate it's not taken by another team
+      if (subdomain) {
+        const existingTeam = await storage.getCounselorTeamBySubdomain(subdomain);
+        if (existingTeam && existingTeam.id !== teamId) {
+          return res.status(400).json({ message: "Este subdominio ya está en uso por otro equipo" });
+        }
+      }
+      
+      const updated = await storage.updateCounselorTeam(teamId, { 
+        name, 
+        description, 
+        subdomain: subdomain ? subdomain.toLowerCase() : null 
+      });
       res.json(updated);
     } catch (error) {
       console.error("Error updating team:", error);

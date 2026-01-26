@@ -185,6 +185,7 @@ export const counselorTeams = pgTable("counselor_teams", {
   ownerUserId: varchar("owner_user_id").notNull(), // The counselor who owns this team
   name: text("name").notNull(),
   description: text("description"),
+  subdomain: text("subdomain").unique(), // Optional subdomain for team access (e.g., "consejero1" for consejero1.comite.dovexmx.com)
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
