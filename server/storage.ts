@@ -7,6 +7,7 @@ import {
   notificationPreferences,
   roles,
   activityAttendances,
+  activityAssignments,
   counselorTeams,
   counselorTeamMembers,
   teamInvites,
@@ -28,6 +29,8 @@ import {
   type InsertRole,
   type ActivityAttendance,
   type InsertActivityAttendance,
+  type ActivityAssignment,
+  type InsertActivityAssignment,
   type CounselorTeam,
   type InsertCounselorTeam,
   type CounselorTeamMember,
@@ -141,6 +144,14 @@ export interface IStorage {
   createScheduledNotification(data: InsertScheduledNotification): Promise<ScheduledNotification>;
   updateNotificationStatus(id: string, status: string, sentAt?: Date): Promise<ScheduledNotification | undefined>;
   snoozeNotification(id: string, newScheduledAt: Date): Promise<ScheduledNotification | undefined>;
+  
+  // Activity Assignments
+  getActivityAssignments(activityId: string): Promise<ActivityAssignment[]>;
+  getActivityAssignment(activityId: string, userId: string): Promise<ActivityAssignment | undefined>;
+  createActivityAssignment(data: InsertActivityAssignment): Promise<ActivityAssignment>;
+  deleteActivityAssignment(activityId: string, userId: string): Promise<boolean>;
+  deleteActivityAssignmentsByActivity(activityId: string): Promise<boolean>;
+  getAssignedActivities(userId: string, startDate?: string, endDate?: string): Promise<MemberActivity[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1064,6 +1075,65 @@ export class DatabaseStorage implements IStorage {
       .where(eq(scheduledNotifications.id, id))
       .returning();
     return updated;
+  }
+
+  // Activity Assignments
+  async getActivityAssignments(activityId: string): Promise<ActivityAssignment[]> {
+    return await db
+      .select()
+      .from(activityAssignments)
+      .where(eq(activityAssignments.activityId, activityId));
+  }
+
+  async getActivityAssignment(activityId: string, userId: string): Promise<ActivityAssignment | undefined> {
+    const [assignment] = await db
+      .select()
+      .from(activityAssignments)
+      .where(and(
+        eq(activityAssignments.activityId, activityId),
+        eq(activityAssignments.userId, userId)
+      ));
+    return assignment;
+  }
+
+  async createActivityAssignment(data: InsertActivityAssignment): Promise<ActivityAssignment> {
+    const [assignment] = await db
+      .insert(activityAssignments)
+      .values(data)
+      .returning();
+    return assignment;
+  }
+
+  async deleteActivityAssignment(activityId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(activityAssignments)
+      .where(and(
+        eq(activityAssignments.activityId, activityId),
+        eq(activityAssignments.userId, userId)
+      ));
+    return true;
+  }
+
+  async deleteActivityAssignmentsByActivity(activityId: string): Promise<boolean> {
+    await db
+      .delete(activityAssignments)
+      .where(eq(activityAssignments.activityId, activityId));
+    return true;
+  }
+
+  async getAssignedActivities(userId: string, startDate?: string, endDate?: string): Promise<MemberActivity[]> {
+    let query = db
+      .select({ activity: memberActivities })
+      .from(activityAssignments)
+      .innerJoin(memberActivities, eq(activityAssignments.activityId, memberActivities.id))
+      .where(eq(activityAssignments.userId, userId));
+    
+    const results = await query;
+    return results.map(r => r.activity).filter(activity => {
+      if (startDate && activity.activityDate < startDate) return false;
+      if (endDate && activity.activityDate > endDate) return false;
+      return true;
+    });
   }
 }
 

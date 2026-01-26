@@ -94,3 +94,79 @@ Core entities:
 - `@replit/vite-plugin-runtime-error-modal`: Development error overlay
 - `@replit/vite-plugin-cartographer`: Development tooling
 - `@replit/vite-plugin-dev-banner`: Development environment indicator
+
+## Activity Assignment System
+
+Activities can be assigned to specific members or all members of a committee/team:
+- When creating an activity, choose assignment mode: none, all members, or specific members
+- Assigned members receive push notifications about the new activity
+- Assignment data stored in `activity_assignments` table
+
+## Subdomain Configuration (Future Feature)
+
+To implement per-counselor subdomains (e.g., counselor1.comite.dovexmx.com), the following VPS configuration is required:
+
+### 1. DNS Configuration
+Add a wildcard A record in your DNS provider:
+```
+*.comite.dovexmx.com -> VPS_IP_ADDRESS
+```
+
+### 2. Nginx Wildcard SSL Certificate
+Use Certbot with DNS challenge to get wildcard certificate:
+```bash
+sudo certbot certonly --manual --preferred-challenges=dns -d "*.comite.dovexmx.com" -d "comite.dovexmx.com"
+```
+
+### 3. Nginx Configuration Update
+Update `/etc/nginx/conf.d/comite.dovexmx.com.conf`:
+```nginx
+server {
+    listen 443 ssl;
+    server_name *.comite.dovexmx.com comite.dovexmx.com;
+    
+    ssl_certificate /etc/letsencrypt/live/comite.dovexmx.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/comite.dovexmx.com/privkey.pem;
+    
+    location / {
+        proxy_pass http://localhost:5001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Subdomain $subdomain;
+    }
+    
+    # Extract subdomain
+    set $subdomain "";
+    if ($host ~* ^([^.]+)\.comite\.dovexmx\.com$) {
+        set $subdomain $1;
+    }
+}
+```
+
+### 4. Backend Subdomain Detection
+Add middleware to detect subdomain and filter data:
+```typescript
+app.use((req, res, next) => {
+  const subdomain = req.get('X-Subdomain') || '';
+  req.counselorSubdomain = subdomain;
+  next();
+});
+```
+
+### 5. Database Changes
+Add `subdomain` field to counselor teams table to map subdomains to teams.
+
+## Push Notifications
+
+### Action Buttons Limitation
+- **Android Chrome**: Full support for notification action buttons (Confirm, +5 min, +15 min)
+- **iOS Safari/PWA**: Does NOT support notification action buttons - this is an Apple platform limitation
+- iOS users must open the app to confirm/snooze notifications
+
+### VAPID Keys Configuration
+VAPID keys must be configured in ecosystem.config.cjs for PM2 on VPS:
+```javascript
+env: {
+  VAPID_PUBLIC_KEY: "your_public_key",
+  VAPID_PRIVATE_KEY: "your_private_key"
+}
+```

@@ -131,6 +131,7 @@ export const memberActivityRelations = relations(memberActivities, ({ one, many 
     references: [committees.id],
   }),
   activityAttendances: many(activityAttendances),
+  assignments: many(activityAssignments),
 }));
 
 export const activityAttendances = pgTable("activity_attendances", {
@@ -145,6 +146,22 @@ export const activityAttendances = pgTable("activity_attendances", {
 export const activityAttendanceRelations = relations(activityAttendances, ({ one }) => ({
   activity: one(memberActivities, {
     fields: [activityAttendances.activityId],
+    references: [memberActivities.id],
+  }),
+}));
+
+// Activity assignments - track which members are assigned to an activity
+export const activityAssignments = pgTable("activity_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  activityId: varchar("activity_id").notNull().references(() => memberActivities.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  notificationSent: boolean("notification_sent").notNull().default(false),
+});
+
+export const activityAssignmentRelations = relations(activityAssignments, ({ one }) => ({
+  activity: one(memberActivities, {
+    fields: [activityAssignments.activityId],
     references: [memberActivities.id],
   }),
 }));
@@ -313,6 +330,12 @@ export const insertActivityAttendanceSchema = createInsertSchema(activityAttenda
   confirmedAt: true,
 });
 
+export const insertActivityAssignmentSchema = createInsertSchema(activityAssignments).omit({
+  id: true,
+  assignedAt: true,
+  notificationSent: true,
+});
+
 export const insertCounselorTeamSchema = createInsertSchema(counselorTeams).omit({
   id: true,
   createdAt: true,
@@ -339,6 +362,8 @@ export type Role = typeof roles.$inferSelect;
 export type InsertRole = z.infer<typeof insertRoleSchema>;
 export type ActivityAttendance = typeof activityAttendances.$inferSelect;
 export type InsertActivityAttendance = z.infer<typeof insertActivityAttendanceSchema>;
+export type ActivityAssignment = typeof activityAssignments.$inferSelect;
+export type InsertActivityAssignment = z.infer<typeof insertActivityAssignmentSchema>;
 export type CounselorTeam = typeof counselorTeams.$inferSelect;
 export type InsertCounselorTeam = z.infer<typeof insertCounselorTeamSchema>;
 export type CounselorTeamMember = typeof counselorTeamMembers.$inferSelect;

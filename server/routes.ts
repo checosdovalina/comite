@@ -784,7 +784,8 @@ export async function registerRoutes(
   app.post("/api/activities", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const data = { ...req.body, userId };
+      const { assignedUserIds, assignToAll, ...activityData } = req.body;
+      const data = { ...activityData, userId };
       
       const isMember = await isUserMemberOfCommittee(userId, data.committeeId);
       if (!isMember) {
@@ -799,7 +800,46 @@ export async function registerRoutes(
       
       const validatedData = insertMemberActivitySchema.parse(data);
       const activity = await storage.createMemberActivity(validatedData);
-      res.status(201).json(activity);
+      
+      // Handle member assignments
+      let usersToAssign: string[] = [];
+      
+      if (assignToAll) {
+        // Get all members of the committee or team
+        if (restriction.teamId) {
+          // Assign to all team members
+          const teamMembers = await storage.getCounselorTeamMembers(restriction.teamId);
+          usersToAssign = teamMembers.map(m => m.userId);
+        } else {
+          // Assign to all committee members
+          const members = await storage.getCommitteeMembers(data.committeeId);
+          usersToAssign = members.map(m => m.userId);
+        }
+      } else if (assignedUserIds && Array.isArray(assignedUserIds) && assignedUserIds.length > 0) {
+        // Validate that assignedUserIds are actual members of the committee/team
+        if (restriction.teamId) {
+          const teamMembers = await storage.getCounselorTeamMembers(restriction.teamId);
+          const validMemberIds = new Set(teamMembers.map(m => m.userId));
+          usersToAssign = assignedUserIds.filter((id: string) => validMemberIds.has(id));
+        } else {
+          const members = await storage.getCommitteeMembers(data.committeeId);
+          const validMemberIds = new Set(members.map(m => m.userId));
+          usersToAssign = assignedUserIds.filter((id: string) => validMemberIds.has(id));
+        }
+      }
+      
+      // Create assignments and send notifications
+      for (const assignedUserId of usersToAssign) {
+        await storage.createActivityAssignment({
+          activityId: activity.id,
+          userId: assignedUserId,
+        });
+        
+        // Send push notification to assigned user
+        await sendActivityAssignmentNotification(assignedUserId, activity);
+      }
+      
+      res.status(201).json({ ...activity, assignedUserIds: usersToAssign });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
@@ -914,6 +954,30 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching activity attendances:", error);
       res.status(500).json({ message: "Failed to fetch activity attendances" });
+    }
+  });
+
+  // Get activity assignments
+  app.get("/api/activities/:activityId/assignments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { activityId } = req.params;
+      
+      const activity = await storage.getMemberActivity(activityId);
+      if (!activity) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      const isMember = await isUserMemberOfCommittee(userId, activity.committeeId);
+      if (!isMember) {
+        return res.status(403).json({ message: "You must be a member of this committee" });
+      }
+      
+      const assignments = await storage.getActivityAssignments(activityId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching activity assignments:", error);
+      res.status(500).json({ message: "Failed to fetch activity assignments" });
     }
   });
 
@@ -1800,7 +1864,8 @@ export async function registerRoutes(
 const sentNotifications = new Map<string, number>();
 setInterval(() => {
   const oneHourAgo = Date.now() - 3600000;
-  for (const [key, timestamp] of sentNotifications.entries()) {
+  const entries = Array.from(sentNotifications.entries());
+  for (const [key, timestamp] of entries) {
     if (timestamp < oneHourAgo) {
       sentNotifications.delete(key);
     }
@@ -1936,5 +2001,44 @@ async function sendScheduledNotifications() {
     } catch (error) {
       console.error(`Error sending notification to user ${prefs.userId}:`, error);
     }
+  }
+}
+
+// Send notification when a user is assigned to an activity
+async function sendActivityAssignmentNotification(userId: string, activity: { id: string; title: string; activityDate: string; startTime?: string | null }) {
+  try {
+    const prefs = await storage.getNotificationPreferences(userId);
+    if (!prefs?.pushEnabled || !prefs?.pushSubscription) {
+      return;
+    }
+    
+    const subscription = JSON.parse(prefs.pushSubscription);
+    const dateFormatted = new Date(activity.activityDate).toLocaleDateString('es-MX', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long' 
+    });
+    const timeStr = activity.startTime ? ` a las ${activity.startTime}` : '';
+    
+    await webpush.sendNotification(
+      subscription,
+      JSON.stringify({
+        title: "Nueva Actividad Asignada",
+        body: `${activity.title} - ${dateFormatted}${timeStr}`,
+        icon: "/icons/icon-192x192.png",
+        badge: "/icons/icon-72x72.png",
+        tag: `activity-assignment-${activity.id}`,
+        renotify: true,
+        requireInteraction: false,
+        data: { 
+          url: "/activities",
+          type: "activity_assignment",
+          referenceId: activity.id
+        }
+      })
+    );
+    console.log(`Activity assignment notification sent to user ${userId} for activity ${activity.id}`);
+  } catch (error) {
+    console.error(`Error sending activity assignment notification to user ${userId}:`, error);
   }
 }

@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
-import type { CounselorTeam } from "@shared/schema";
+import type { CounselorTeam, CommitteeMember, CounselorTeamMember } from "@shared/schema";
 import {
   Card,
   CardContent,
@@ -55,6 +55,7 @@ import {
   Presentation,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Committee, MemberActivity } from "@shared/schema";
 
 const activityTypes = [
@@ -99,6 +100,10 @@ export default function ActivitiesPage() {
     meetingUrl: "",
     teamId: "",
   });
+  
+  // Member assignment state
+  const [assignmentMode, setAssignmentMode] = useState<"none" | "all" | "specific">("none");
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
   const startDate = format(startOfMonth(currentDate), "yyyy-MM-dd");
   const endDate = format(endOfMonth(currentDate), "yyyy-MM-dd");
@@ -143,6 +148,22 @@ export default function ActivitiesPage() {
 
   // Get selected team details
   const selectedTeam = myTeams?.find(t => t.id === effectiveTeamId) || teamContext?.team;
+
+  // Fetch members for assignment when dialog is open
+  type MemberWithUser = { userId: string; user?: { id: string; firstName?: string | null; lastName?: string | null; email: string } };
+  
+  const { data: committeeMembers } = useQuery<MemberWithUser[]>({
+    queryKey: ["/api/committees", selectedCommittee, "members"],
+    enabled: isDialogOpen && !!selectedCommittee && !editingActivity,
+  });
+
+  const { data: teamMembersForAssignment } = useQuery<MemberWithUser[]>({
+    queryKey: ["/api/teams", effectiveTeamId, "members"],
+    enabled: isDialogOpen && !!effectiveTeamId && !editingActivity,
+  });
+
+  // Use team members if in team context, otherwise committee members
+  const availableMembers = effectiveTeamId ? teamMembersForAssignment : committeeMembers;
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/activities", data),
@@ -244,6 +265,8 @@ export default function ActivitiesPage() {
       meetingUrl: "",
       teamId: effectiveTeamId || "",
     });
+    setAssignmentMode("none");
+    setSelectedMemberIds([]);
   };
 
   const handleOpenDialog = (activity?: MemberActivity) => {
@@ -294,11 +317,20 @@ export default function ActivitiesPage() {
       return;
     }
 
-    const payload = {
+    const payload: any = {
       ...formData,
       committeeId: committeeToUse,
       teamId: effectiveTeamId || formData.teamId || null, // Associate with team if in team view
     };
+
+    // Add assignment data for new activities
+    if (!editingActivity) {
+      if (assignmentMode === "all") {
+        payload.assignToAll = true;
+      } else if (assignmentMode === "specific" && selectedMemberIds.length > 0) {
+        payload.assignedUserIds = selectedMemberIds;
+      }
+    }
 
     if (editingActivity) {
       updateMutation.mutate({ id: editingActivity.id, data: payload });
@@ -758,6 +790,97 @@ export default function ActivitiesPage() {
                 data-testid="input-meeting-url"
               />
             </div>
+
+            {!editingActivity && (
+              <div className="space-y-3 border-t pt-4">
+                <Label className="text-base font-medium">Asignar a Miembros</Label>
+                <p className="text-xs text-muted-foreground">
+                  Los miembros asignados recibirán una notificación de esta actividad
+                </p>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      id="assign-none"
+                      name="assignmentMode"
+                      checked={assignmentMode === "none"}
+                      onChange={() => {
+                        setAssignmentMode("none");
+                        setSelectedMemberIds([]);
+                      }}
+                      className="h-4 w-4"
+                      data-testid="radio-assign-none"
+                    />
+                    <Label htmlFor="assign-none" className="cursor-pointer font-normal">
+                      No asignar (solo yo)
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      id="assign-all"
+                      name="assignmentMode"
+                      checked={assignmentMode === "all"}
+                      onChange={() => {
+                        setAssignmentMode("all");
+                        setSelectedMemberIds([]);
+                      }}
+                      className="h-4 w-4"
+                      data-testid="radio-assign-all"
+                    />
+                    <Label htmlFor="assign-all" className="cursor-pointer font-normal">
+                      Asignar a todos los miembros
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      id="assign-specific"
+                      name="assignmentMode"
+                      checked={assignmentMode === "specific"}
+                      onChange={() => setAssignmentMode("specific")}
+                      className="h-4 w-4"
+                      data-testid="radio-assign-specific"
+                    />
+                    <Label htmlFor="assign-specific" className="cursor-pointer font-normal">
+                      Asignar a miembros específicos
+                    </Label>
+                  </div>
+                </div>
+
+                {assignmentMode === "specific" && (
+                  <div className="mt-3 space-y-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                    {availableMembers && availableMembers.length > 0 ? (
+                      availableMembers.map((member) => (
+                        <div key={member.userId} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`member-${member.userId}`}
+                            checked={selectedMemberIds.includes(member.userId)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedMemberIds([...selectedMemberIds, member.userId]);
+                              } else {
+                                setSelectedMemberIds(selectedMemberIds.filter(id => id !== member.userId));
+                              }
+                            }}
+                            data-testid={`checkbox-member-${member.userId}`}
+                          />
+                          <Label htmlFor={`member-${member.userId}`} className="cursor-pointer font-normal text-sm">
+                            {member.user?.firstName} {member.user?.lastName}
+                            <span className="text-muted-foreground ml-1">({member.user?.email})</span>
+                          </Label>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Cargando miembros...</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
