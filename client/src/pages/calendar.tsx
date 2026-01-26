@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -154,6 +155,8 @@ export default function CalendarPage() {
     location: "",
     meetingUrl: "",
   });
+  const [assignmentMode, setAssignmentMode] = useState<"none" | "all" | "specific">("none");
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -187,6 +190,19 @@ export default function CalendarPage() {
 
   const { data: myAttendances, isLoading: attendancesLoading } = useQuery<AttendanceWithDetails[]>({
     queryKey: ["/api/my-attendances"],
+  });
+
+  // Get available members for assignment (team members if in team view, otherwise committee members)
+  interface MemberWithUser {
+    userId: string;
+    user?: { id: string; firstName: string | null; lastName: string | null; email: string };
+  }
+  
+  const { data: availableMembers } = useQuery<MemberWithUser[]>({
+    queryKey: effectiveTeamId 
+      ? ["/api/teams", effectiveTeamId, "members"]
+      : ["/api/committees", selectedCommittee, "members"],
+    enabled: !!(effectiveTeamId || selectedCommittee),
   });
 
   // Auto-select committee for non-superadmin users or use team's committee for restricted users
@@ -396,6 +412,8 @@ export default function CalendarPage() {
         location: "",
         meetingUrl: "",
       });
+      setAssignmentMode("none");
+      setSelectedMemberIds([]);
       toast({
         title: "Actividad creada",
         description: "La actividad se ha registrado correctamente",
@@ -427,12 +445,21 @@ export default function CalendarPage() {
       return;
     }
 
-    createActivityMutation.mutate({
+    const payload: any = {
       ...activityFormData,
       committeeId: committeeToUse,
       activityDate: format(selectedDate, "yyyy-MM-dd"),
       teamId: effectiveTeamId || null,
-    });
+    };
+    
+    // Add assignment data if applicable
+    if (assignmentMode === "all") {
+      payload.assignToAll = true;
+    } else if (assignmentMode === "specific" && selectedMemberIds.length > 0) {
+      payload.assignedUserIds = selectedMemberIds;
+    }
+    
+    createActivityMutation.mutate(payload);
   };
 
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -1520,18 +1547,23 @@ export default function CalendarPage() {
                               ) : (
                                 <>
                                   {activityAttendances && activityAttendances.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1 mb-2">
+                                    <div className="space-y-1 mb-2">
                                       {activityAttendances.map((att) => (
-                                        <Badge 
-                                          key={att.id} 
-                                          variant="secondary" 
-                                          className="text-xs"
-                                        >
-                                          {att.user?.firstName || att.user?.email || "Usuario"}
-                                          {att.status === "confirmed" && (
-                                            <Check className="h-3 w-3 ml-1 text-green-600" />
+                                        <div key={att.id} className="flex items-center justify-between text-xs">
+                                          <div className="flex items-center gap-1">
+                                            <Badge variant="secondary" className="text-xs">
+                                              {att.user?.firstName || att.user?.email || "Usuario"}
+                                              {att.status === "confirmed" && (
+                                                <Check className="h-3 w-3 ml-1 text-green-600" />
+                                              )}
+                                            </Badge>
+                                          </div>
+                                          {att.registeredAt && (
+                                            <span className="text-muted-foreground text-xs">
+                                              {format(new Date(att.registeredAt), "HH:mm")}
+                                            </span>
                                           )}
-                                        </Badge>
+                                        </div>
                                       ))}
                                     </div>
                                   ) : (
@@ -1815,6 +1847,90 @@ export default function CalendarPage() {
                 rows={3}
                 data-testid="input-activity-description"
               />
+            </div>
+
+            <div className="space-y-3 border-t pt-4">
+              <Label className="text-sm font-medium">Asignar miembros</Label>
+              <p className="text-xs text-muted-foreground">
+                Los miembros asignados recibirán una notificación
+              </p>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    id="cal-assign-none"
+                    name="calAssignmentMode"
+                    checked={assignmentMode === "none"}
+                    onChange={() => {
+                      setAssignmentMode("none");
+                      setSelectedMemberIds([]);
+                    }}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="cal-assign-none" className="cursor-pointer font-normal">
+                    No asignar (solo yo)
+                  </Label>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    id="cal-assign-all"
+                    name="calAssignmentMode"
+                    checked={assignmentMode === "all"}
+                    onChange={() => {
+                      setAssignmentMode("all");
+                      setSelectedMemberIds([]);
+                    }}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="cal-assign-all" className="cursor-pointer font-normal">
+                    Asignar a todos los miembros
+                  </Label>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    id="cal-assign-specific"
+                    name="calAssignmentMode"
+                    checked={assignmentMode === "specific"}
+                    onChange={() => setAssignmentMode("specific")}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="cal-assign-specific" className="cursor-pointer font-normal">
+                    Asignar a miembros específicos
+                  </Label>
+                </div>
+              </div>
+
+              {assignmentMode === "specific" && (
+                <div className="mt-3 space-y-2 max-h-32 overflow-y-auto border rounded-md p-2">
+                  {availableMembers && availableMembers.length > 0 ? (
+                    availableMembers.map((member) => (
+                      <div key={member.userId} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`cal-member-${member.userId}`}
+                          checked={selectedMemberIds.includes(member.userId)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedMemberIds([...selectedMemberIds, member.userId]);
+                            } else {
+                              setSelectedMemberIds(selectedMemberIds.filter(id => id !== member.userId));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`cal-member-${member.userId}`} className="cursor-pointer font-normal text-sm">
+                          {member.user?.firstName} {member.user?.lastName}
+                        </Label>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Cargando miembros...</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
