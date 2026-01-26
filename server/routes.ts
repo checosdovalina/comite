@@ -132,6 +132,70 @@ export async function registerRoutes(
     }
   });
 
+  // Dynamic manifest.json for PWA support on subdomains
+  app.get("/manifest.json", async (req: any, res) => {
+    try {
+      const subdomain = req.subdomain;
+      const team = req.subdomainTeam;
+      
+      // Base manifest
+      const manifest: any = {
+        name: "Comités Distritales",
+        short_name: "Comités",
+        description: "Sistema de gestión de roles y asistencias para comités distritales",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        background_color: "#0f172a",
+        theme_color: "#0f172a",
+        orientation: "portrait-primary",
+        icons: [
+          {
+            src: "/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any maskable"
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable"
+          }
+        ],
+        categories: ["productivity", "business"],
+        lang: "es",
+        prefer_related_applications: false
+      };
+      
+      // Customize for subdomain
+      if (subdomain && team) {
+        manifest.name = `${team.name} - Comités`;
+        manifest.short_name = team.name.substring(0, 12);
+        manifest.description = `Equipo ${team.name} - Sistema de gestión de comités`;
+      }
+      
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.json(manifest);
+    } catch (error) {
+      console.error("Error generating manifest:", error);
+      // Fallback to basic manifest
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.json({
+        name: "Comités Distritales",
+        short_name: "Comités",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#0f172a",
+        theme_color: "#0f172a",
+        icons: [
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png" }
+        ]
+      });
+    }
+  });
+
   // Public endpoint for registration - get active committees
   app.get("/api/public/committees", async (req, res) => {
     try {
