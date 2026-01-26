@@ -346,7 +346,9 @@ export default function ActivitiesPage() {
   // Use team activities if team is selected or user is restricted to team, otherwise use committee activities
   const displayActivities = effectiveTeamId 
     ? teamActivities 
-    : activities?.filter((a) => !selectedCommittee || a.committeeId === selectedCommittee);
+    : Array.isArray(activities) 
+      ? activities.filter((a) => !selectedCommittee || a.committeeId === selectedCommittee)
+      : [];
 
   const filteredActivities = displayActivities;
 
