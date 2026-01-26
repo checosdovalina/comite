@@ -13,6 +13,7 @@ import {
   teamInvites,
   pushSubscriptions,
   scheduledNotifications,
+  documents,
   type Committee,
   type InsertCommittee,
   type CommitteeMember,
@@ -41,6 +42,8 @@ import {
   type InsertPushSubscription,
   type ScheduledNotification,
   type InsertScheduledNotification,
+  type Document,
+  type InsertDocument,
 } from "@shared/schema";
 import { users, type User } from "@shared/models/auth";
 import { db } from "./db";
@@ -153,6 +156,12 @@ export interface IStorage {
   deleteActivityAssignment(activityId: string, userId: string): Promise<boolean>;
   deleteActivityAssignmentsByActivity(activityId: string): Promise<boolean>;
   getAssignedActivities(userId: string, startDate?: string, endDate?: string): Promise<MemberActivity[]>;
+  
+  // Documents
+  getDocuments(teamId?: string, committeeId?: string): Promise<(Document & { uploadedBy?: User })[]>;
+  getDocument(id: string): Promise<Document | undefined>;
+  createDocument(data: InsertDocument): Promise<Document>;
+  deleteDocument(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1147,6 +1156,44 @@ export class DatabaseStorage implements IStorage {
       if (endDate && activity.activityDate > endDate) return false;
       return true;
     });
+  }
+
+  // Documents
+  async getDocuments(teamId?: string, committeeId?: string): Promise<(Document & { uploadedBy?: User })[]> {
+    let conditions = [];
+    if (teamId) {
+      conditions.push(eq(documents.teamId, teamId));
+    }
+    if (committeeId) {
+      conditions.push(eq(documents.committeeId, committeeId));
+    }
+    
+    const results = await db
+      .select()
+      .from(documents)
+      .leftJoin(users, eq(documents.uploadedByUserId, users.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(documents.createdAt));
+    
+    return results.map(r => ({
+      ...r.documents,
+      uploadedBy: r.users || undefined,
+    }));
+  }
+
+  async getDocument(id: string): Promise<Document | undefined> {
+    const [document] = await db.select().from(documents).where(eq(documents.id, id));
+    return document;
+  }
+
+  async createDocument(data: InsertDocument): Promise<Document> {
+    const [document] = await db.insert(documents).values(data).returning();
+    return document;
+  }
+
+  async deleteDocument(id: string): Promise<boolean> {
+    await db.delete(documents).where(eq(documents.id, id));
+    return true;
   }
 }
 

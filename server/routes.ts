@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./auth";
-import { insertCommitteeSchema, insertAttendanceSlotSchema, insertMemberActivitySchema, insertNotificationPreferencesSchema, insertRoleSchema } from "@shared/schema";
+import { insertCommitteeSchema, insertAttendanceSlotSchema, insertMemberActivitySchema, insertNotificationPreferencesSchema, insertRoleSchema, insertDocumentSchema } from "@shared/schema";
 import { z } from "zod";
 import {
   startOfMonth,
@@ -14,6 +14,7 @@ import {
 } from "date-fns";
 import webpush from "web-push";
 import cron from "node-cron";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 // Configure web-push with VAPID keys
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -86,6 +87,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   setupAuth(app);
   registerAuthRoutes(app);
+  registerObjectStorageRoutes(app);
 
   // Subdomain detection middleware
   app.use(async (req: any, res, next) => {
@@ -1668,6 +1670,71 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching team activities:", error);
       res.status(500).json({ message: "Failed to fetch team activities" });
+    }
+  });
+
+  // Documents Routes
+  app.get("/api/documents", isAuthenticated, async (req: any, res) => {
+    try {
+      const { teamId, committeeId } = req.query;
+      const documents = await storage.getDocuments(teamId as string, committeeId as string);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.get("/api/documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const document = await storage.getDocument(id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching document:", error);
+      res.status(500).json({ message: "Failed to fetch document" });
+    }
+  });
+
+  app.post("/api/documents", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const data = { ...req.body, uploadedByUserId: userId };
+      const validatedData = insertDocumentSchema.parse(data);
+      const document = await storage.createDocument(validatedData);
+      res.status(201).json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating document:", error);
+      res.status(500).json({ message: "Failed to create document" });
+    }
+  });
+
+  app.delete("/api/documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      
+      const document = await storage.getDocument(id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Only the uploader or admin can delete
+      if (document.uploadedByUserId !== userId) {
+        return res.status(403).json({ message: "Not authorized to delete this document" });
+      }
+      
+      await storage.deleteDocument(id);
+      res.json({ message: "Document deleted" });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
     }
   });
 
