@@ -1,0 +1,59 @@
+[root@localhost comite]# cat ecosystem.config.cjs
+module.exports = {
+  apps: [{
+    name: 'comite-app',
+    script: 'dist/index.cjs',
+    cwd: '/var/www/comite',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 5001,
+      DATABASE_URL: 'postgresql://comite_user:TuPasswordSeguro123@localhost:5432/comite_db',
+      SESSION_SECRET: 'tu_session_secret_aqui',
+      VAPID_PUBLIC_KEY: 'BJ69sx_7jewJHU_2K71X0YwC8UYOUV32mYHEYY7bwjyRD8gHMDPniGoGWoXP-BcstlOhbNiUOwRT4QI1hLg1_G4',
+      VAPID_PRIVATE_KEY: '5Hqb4X_1qDFzX2BwcsQji7Juulf_Fb3zdp7C_pCAWDI'
+    }
+  }]
+};
+[root@localhost comite]# pm2 show 3 | grep -A 50 "env"
+│ node env          │ production                           │
+│ watch & reload    │ ✘                                    │
+│ unstable restarts │ 0                                    │
+│ created at        │ 2026-01-26T01:02:12.828Z             │
+└───────────────────┴──────────────────────────────────────┘
+ Actions available 
+┌────────────────────────┐
+│ km:heapdump            │
+│ km:cpu:profiling:start │
+│ km:cpu:profiling:stop  │
+│ km:heap:sampling:start │
+│ km:heap:sampling:stop  │
+└────────────────────────┘
+ Trigger via: pm2 trigger comite-app <action_name>
+
+ Code metrics value 
+┌────────────────────────┬───────────┐
+│ Used Heap Size         │ 14.41 MiB │
+│ Heap Usage             │ 91.35 %   │
+│ Heap Size              │ 15.78 MiB │
+│ Event Loop Latency p95 │ 1.22 ms   │
+│ Event Loop Latency     │ 0.35 ms   │
+│ Active handles         │ 4         │
+│ Active requests        │ 0         │
+│ HTTP                   │ 0 req/min │
+│ HTTP P95 Latency       │ 12 ms     │
+│ HTTP Mean Latency      │ 12 ms     │
+└────────────────────────┴───────────┘
+ Divergent env variables from local env 
+┌────────────────┬────────────────────────────────────────┐
+│ SSH_CONNECTION │ 177.241.173.96 15375 74.208.218.225 22 │
+│ XDG_SESSION_ID │ 13                                     │
+│ SSH_CLIENT     │ 177.241.173.96 15375 22                │
+│ SSH_TTY        │ /dev/pts/0                             │
+│ OLDPWD         │ /var/www/comite                        │
+└────────────────┴────────────────────────────────────────┘
+
+ Add your own code metrics: http://bit.ly/code-metrics
+ Use `pm2 logs comite-app [--lines 1000]` to display logs
+ Use `pm2 env 3` to display environment variables
+ Use `pm2 monit` to monitor CPU and Memory usage comite-app
+[root@localhost comite]# 
