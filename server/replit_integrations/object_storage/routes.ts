@@ -82,5 +82,57 @@ export function registerObjectStorageRoutes(app: Express): void {
       return res.status(500).json({ error: "Failed to serve object" });
     }
   });
+
+  /**
+   * Get presigned upload URL for file upload.
+   *
+   * POST /api/storage/upload-url
+   *
+   * Request body (JSON):
+   * {
+   *   "objectKey": ".private/documents/filename.pdf",
+   *   "contentType": "application/pdf"
+   * }
+   */
+  app.post("/api/storage/upload-url", async (req, res) => {
+    try {
+      const { objectKey, contentType } = req.body;
+
+      if (!objectKey) {
+        return res.status(400).json({
+          error: "Missing required field: objectKey",
+        });
+      }
+
+      const uploadUrl = await objectStorageService.getObjectEntityUploadURL(objectKey);
+
+      res.json({
+        uploadUrl,
+        publicUrl: `/api/storage/download/${encodeURIComponent(objectKey)}`,
+      });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  /**
+   * Download a file from object storage.
+   *
+   * GET /api/storage/download/:objectPath(*)
+   */
+  app.get("/api/storage/download/:objectPath(*)", async (req, res) => {
+    try {
+      const objectPath = decodeURIComponent(req.params.objectPath);
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      await objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: "Object not found" });
+      }
+      return res.status(500).json({ error: "Failed to serve object" });
+    }
+  });
 }
 

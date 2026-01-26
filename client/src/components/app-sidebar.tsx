@@ -28,6 +28,7 @@ import {
   ListTodo,
   Shield,
   UsersRound,
+  FileText,
 } from "lucide-react";
 
 type TeamContext = {
@@ -67,6 +68,12 @@ const mainNavItems = [
     title: "Actividades",
     url: "/activities",
     icon: ListTodo,
+    hideForAuxiliary: false,
+  },
+  {
+    title: "Documentos",
+    url: "/documents",
+    icon: FileText,
     hideForAuxiliary: false,
   },
   {
