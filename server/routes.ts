@@ -1237,16 +1237,16 @@ export async function registerRoutes(
       const userId = req.user.id;
       const { committeeId } = req.params;
       
-      // Verify user is a counselor (consejero electoral) who can create teams
-      // Only counselors can create teams to manage their auxiliares
-      const counselorRoles = ["counselor_president", "counselor_secretary", "counselor"];
+      // Verify user has a role that can create teams
+      // Only these specific roles can create teams to manage their auxiliares
+      const rolesWithTeamAccess = ["consejeriaelectoral", "consejeriaelectoralpresidente", "secretario_ejecutivo_"];
       const membership = await storage.getUserMemberships(userId);
       const committeeMembership = membership.find(m => 
-        m.committeeId === committeeId && counselorRoles.includes(m.leadershipRole)
+        m.committeeId === committeeId && rolesWithTeamAccess.includes(m.leadershipRole)
       );
       
       if (!committeeMembership) {
-        return res.status(403).json({ message: "Solo consejeros electorales pueden crear equipos" });
+        return res.status(403).json({ message: "Solo Consejeros Electorales, Consejeros Electorales Presidentes y Secretarios Ejecutivos pueden crear equipos" });
       }
       
       // Check if user already has a team in this committee
