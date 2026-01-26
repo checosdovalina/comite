@@ -1778,6 +1778,106 @@ export async function registerRoutes(
     }
   });
 
+  // Diagnostic endpoint for VPS debugging
+  app.get("/api/push-diagnostics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const prefs = await storage.getNotificationPreferences(userId);
+      
+      const diagnostics = {
+        timestamp: new Date().toISOString(),
+        server: {
+          vapidConfigured: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+          vapidPublicKeyLength: process.env.VAPID_PUBLIC_KEY?.length || 0,
+          vapidPrivateKeyLength: process.env.VAPID_PRIVATE_KEY?.length || 0,
+          nodeEnv: process.env.NODE_ENV || "development",
+        },
+        user: {
+          id: userId,
+          hasPreferences: !!prefs,
+          pushEnabled: prefs?.pushEnabled || false,
+          hasSubscription: !!prefs?.pushSubscription,
+          subscriptionEndpoint: prefs?.pushSubscription 
+            ? JSON.parse(prefs.pushSubscription).endpoint?.substring(0, 50) + "..." 
+            : null,
+          shiftReminders: prefs?.shiftReminders || false,
+          activityReminders: prefs?.activityReminders || false,
+          reminderMinutesBefore: prefs?.reminderMinutesBefore || 60,
+        },
+        recommendations: [] as string[],
+      };
+      
+      // Add recommendations
+      if (!diagnostics.server.vapidConfigured) {
+        diagnostics.recommendations.push("VAPID keys not configured. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.");
+      }
+      if (!diagnostics.user.hasPreferences) {
+        diagnostics.recommendations.push("User has no notification preferences. Visit Settings to configure.");
+      }
+      if (!diagnostics.user.pushEnabled) {
+        diagnostics.recommendations.push("Push notifications not enabled. Enable in Settings.");
+      }
+      if (!diagnostics.user.hasSubscription) {
+        diagnostics.recommendations.push("No push subscription found. Subscribe to push notifications in Settings.");
+      }
+      
+      res.json(diagnostics);
+    } catch (error) {
+      console.error("Error getting push diagnostics:", error);
+      res.status(500).json({ message: "Failed to get diagnostics", error: String(error) });
+    }
+  });
+
+  // Test push to specific user (admin only, for VPS debugging)
+  app.post("/api/test-push/:userId", isAuthenticated, async (req: any, res) => {
+    try {
+      const targetUserId = req.params.userId;
+      
+      // Check if requester is superadmin
+      if (!isSuperAdmin(req)) {
+        return res.status(403).json({ message: "Only superadmins can test notifications for other users" });
+      }
+      
+      const prefs = await storage.getNotificationPreferences(targetUserId);
+      
+      if (!prefs?.pushEnabled || !prefs?.pushSubscription) {
+        return res.status(400).json({ 
+          message: "Target user has push notifications disabled or no subscription",
+          details: {
+            pushEnabled: prefs?.pushEnabled || false,
+            hasSubscription: !!prefs?.pushSubscription,
+          }
+        });
+      }
+      
+      const subscription = JSON.parse(prefs.pushSubscription);
+      
+      await webpush.sendNotification(
+        subscription,
+        JSON.stringify({
+          title: "Prueba de Notificación (Admin)",
+          body: `Notificación de prueba enviada por administrador.`,
+          icon: "/icons/icon-192x192.png",
+          badge: "/icons/icon-72x72.png",
+          data: { 
+            url: "/",
+            notificationId: "admin-test",
+            type: "test"
+          },
+        })
+      );
+      
+      res.json({ message: `Test notification sent to user ${targetUserId}` });
+    } catch (error: any) {
+      console.error("Error sending test notification to user:", error);
+      res.status(500).json({ 
+        message: "Failed to send test notification",
+        error: error.message,
+        statusCode: error.statusCode,
+      });
+    }
+  });
+
   // Notification action endpoints
   app.post("/api/notifications/:id/confirm", isAuthenticated, async (req: any, res) => {
     try {
