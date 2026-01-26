@@ -8,6 +8,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/hooks/use-auth";
+import { useSubdomain } from "@/hooks/use-subdomain";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import LandingPage from "@/pages/landing";
@@ -29,6 +31,7 @@ import NotFound from "@/pages/not-found";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 
 function AuthenticatedRouter() {
+  const { team: subdomainTeam, isSubdomainAccess } = useSubdomain();
   const sidebarStyle = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
@@ -40,7 +43,14 @@ function AuthenticatedRouter() {
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <header className="flex h-14 items-center justify-between gap-4 border-b px-4">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <div className="flex items-center gap-3">
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              {isSubdomainAccess && subdomainTeam && (
+                <Badge variant="secondary" className="text-xs">
+                  {subdomainTeam.name}
+                </Badge>
+              )}
+            </div>
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-6">

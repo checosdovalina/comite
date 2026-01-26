@@ -387,6 +387,20 @@ export default function TeamPage() {
                         <Badge variant="outline">{team.committee.name}</Badge>
                       )}
                     </div>
+                    {(team as any).subdomain && (
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                        <Link2 className="h-3 w-3" />
+                        <a 
+                          href={`https://${(team as any).subdomain}.comite.dovexmx.com`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {(team as any).subdomain}.comite.dovexmx.com
+                        </a>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))

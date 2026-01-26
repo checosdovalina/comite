@@ -784,6 +784,12 @@ export async function registerRoutes(
       const userId = req.user.id;
       const { startDate, endDate } = req.query;
       
+      // If accessed via subdomain, filter to that team's activities
+      if (req.subdomainTeam) {
+        const teamActivities = await storage.getTeamActivities(req.subdomainTeam.id, startDate, endDate);
+        return res.json(teamActivities);
+      }
+      
       // Check if user is in a team (owner or auxiliary) - filter to their team's activities only
       const restriction = await getUserTeamRestriction(userId);
       if (restriction.teamId) {
@@ -960,6 +966,13 @@ export async function registerRoutes(
       const isMember = await isUserMemberOfCommittee(userId, committeeId);
       if (!isMember) {
         return res.status(403).json({ message: "Not authorized to view this committee's activities" });
+      }
+      
+      // If accessed via subdomain, filter to that team's activities
+      if (req.subdomainTeam) {
+        const teamActivities = await storage.getTeamActivities(req.subdomainTeam.id, startDate, endDate);
+        const calendarActivities = teamActivities.filter((a: any) => a.showOnCalendar);
+        return res.json(calendarActivities);
       }
       
       // Check if user is in a team - filter to their team's activities only
