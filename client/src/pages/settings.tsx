@@ -24,6 +24,11 @@ import {
   Clock,
   Loader2,
   Save,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Bug,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -60,6 +65,32 @@ export default function SettingsPage() {
     pushEnabled: boolean;
   }>({
     queryKey: ["/api/notification-preferences"],
+  });
+
+  // Fetch push diagnostics
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const { data: diagnostics, isLoading: isLoadingDiagnostics, refetch: refetchDiagnostics } = useQuery<{
+    timestamp: string;
+    server: {
+      vapidConfigured: boolean;
+      vapidPublicKeyLength: number;
+      vapidPrivateKeyLength: number;
+      nodeEnv: string;
+    };
+    user: {
+      id: string;
+      hasPreferences: boolean;
+      pushEnabled: boolean;
+      hasSubscription: boolean;
+      subscriptionEndpoint: string | null;
+      shiftReminders: boolean;
+      activityReminders: boolean;
+      reminderMinutesBefore: number;
+    };
+    recommendations: string[];
+  }>({
+    queryKey: ["/api/push-diagnostics"],
+    enabled: showDiagnostics,
   });
 
   // Update local state when preferences are loaded
@@ -270,6 +301,129 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </>
+            )}
+            <Separator />
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label>Diagnóstico de notificaciones</Label>
+                <p className="text-sm text-muted-foreground">
+                  Ver estado detallado del sistema de notificaciones
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowDiagnostics(!showDiagnostics);
+                  if (!showDiagnostics) {
+                    refetchDiagnostics();
+                  }
+                }}
+                className="touch-manipulation"
+                data-testid="button-show-diagnostics"
+              >
+                <Bug className="h-4 w-4 mr-2" />
+                {showDiagnostics ? "Ocultar" : "Ver diagnóstico"}
+              </Button>
+            </div>
+            {showDiagnostics && (
+              <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-4">
+                {isLoadingDiagnostics ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : diagnostics ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Estado del servidor</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => refetchDiagnostics()}
+                        data-testid="button-refresh-diagnostics"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        {diagnostics.server.vapidConfigured ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span className="text-sm">
+                          Claves VAPID: {diagnostics.server.vapidConfigured ? "Configuradas" : "No configuradas"}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {diagnostics.user.pushEnabled ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span className="text-sm">
+                          Push habilitado: {diagnostics.user.pushEnabled ? "Sí" : "No"}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {diagnostics.user.hasSubscription ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span className="text-sm">
+                          Suscripción activa: {diagnostics.user.hasSubscription ? "Sí" : "No"}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {diagnostics.user.shiftReminders ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        )}
+                        <span className="text-sm">
+                          Recordatorios de turno: {diagnostics.user.shiftReminders ? "Activos" : "Inactivos"}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {diagnostics.user.activityReminders ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        )}
+                        <span className="text-sm">
+                          Recordatorios de actividad: {diagnostics.user.activityReminders ? "Activos" : "Inactivos"}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {diagnostics.recommendations.length > 0 && (
+                      <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                        <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400 mb-2">
+                          Recomendaciones:
+                        </p>
+                        <ul className="text-sm space-y-1 text-muted-foreground">
+                          {diagnostics.recommendations.map((rec, i) => (
+                            <li key={i}>• {rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
+                    <div className="text-xs text-muted-foreground mt-2">
+                      Entorno: {diagnostics.server.nodeEnv} | 
+                      Última actualización: {new Date(diagnostics.timestamp).toLocaleTimeString()}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No se pudo cargar el diagnóstico</p>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
