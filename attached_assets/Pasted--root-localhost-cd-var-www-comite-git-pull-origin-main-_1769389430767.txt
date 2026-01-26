@@ -1,0 +1,80 @@
+[root@localhost ~]# cd /var/www/comite
+
+git pull origin main
+
+npm install
+
+npm run build
+
+npm run db:push
+
+pm2 restart comite-app
+remote: Enumerating objects: 11, done.
+remote: Counting objects: 100% (11/11), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 6 (delta 5), reused 6 (delta 5), pack-reused 0 (from 0)
+Unpacking objects: 100% (6/6), 2.18 KiB | 744.00 KiB/s, done.
+From https://github.com/checosdovalina/comite
+ * branch            main       -> FETCH_HEAD
+   19f016a..5e1d6fd  main       -> origin/main
+Updating 19f016a..5e1d6fd
+Fast-forward
+ client/src/pages/settings.tsx | 154 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 154 insertions(+)
+
+up to date, audited 514 packages in 1s
+
+71 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (1 moderate, 3 high)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+
+> rest-express@1.0.0 build
+> tsx script/build.ts
+
+building client...
+vite v7.3.0 building client environment for production...
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+✓ 2580 modules transformed.
+../dist/public/index.html                   3.07 kB │ gzip:   1.07 kB
+../dist/public/assets/index-wxhMz5Lu.css   83.80 kB │ gzip:  13.52 kB
+../dist/public/assets/index-6rZ5PRYv.js   675.71 kB │ gzip: 190.82 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 5.26s
+building server...
+
+  dist/index.cjs  1.1mb ⚠️
+
+⚡ Done in 136ms
+
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/var/www/comite/drizzle.config.ts'
+Using 'pg' driver for database querying
+[✓] Pulling schema from database...
+[✓] Changes applied
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [comite-app](ids: [ 3 ])
+[PM2] [comite-app](3) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 3  │ comite-app         │ fork     │ 5    │ online    │ 0%       │ 18.0mb   │
+│ 0  │ sheltiescrm        │ fork     │ 106  │ online    │ 0%       │ 68.8mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[root@localhost comite]# # Ver las variables de entorno en PM2
+pm2 env comite | grep VAPID
+[PM2][ERROR] Modules with id comite not found
+[root@localhost comite]# 
