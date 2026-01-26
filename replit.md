@@ -12,6 +12,7 @@ Key features:
 - Attendance scheduling with morning/afternoon/full-day shifts
 - Calendar visualization for attendance slots
 - User profiles with committee membership tracking
+- Document management with file uploads and sharing
 - Spanish language localization
 - Dark/light mode theme support
 
@@ -40,7 +41,7 @@ The frontend follows a standard SPA structure with:
 - App shell layout with fixed sidebar navigation (240px)
 - Protected routes requiring authentication
 - Landing page for unauthenticated users
-- Pages: Dashboard, Committees, Calendar, Attendances, Members, Profile, Settings
+- Pages: Dashboard, Committees, Calendar, Attendances, Activities, Documents, Members, Profile, Settings, Team
 
 ### Backend Architecture
 - **Framework**: Express.js with TypeScript
