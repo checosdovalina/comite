@@ -286,3 +286,31 @@
     inset: -1px;
   }
 }
+
+/* iOS Safe Area Support */
+@supports (padding: max(0px)) {
+  .safe-area-inset-top {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+  .safe-area-inset-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 640px) {
+  button, [role="button"], a, input, select, textarea {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  
+  /* Prevent double-tap zoom */
+  * {
+    touch-action: manipulation;
+  }
+  
+  /* Better scrolling on iOS */
+  .overflow-auto, .overflow-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}

@@ -43,7 +43,7 @@ function AuthenticatedRouter() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex h-14 items-center justify-between gap-4 border-b px-4">
+          <header className="flex h-14 items-center justify-between gap-4 border-b px-4 safe-area-inset-top">
             <div className="flex items-center gap-3">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               {isSubdomainAccess && subdomainTeam && (
@@ -54,7 +54,7 @@ function AuthenticatedRouter() {
             </div>
             <ThemeToggle />
           </header>
-          <main className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-auto p-4 md:p-6">
             <Switch>
               <Route path="/" component={DashboardPage} />
               <Route path="/dashboard" component={DashboardPage} />

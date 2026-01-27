@@ -141,7 +141,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b p-4">
+      <SidebarHeader className="border-b p-4 safe-area-inset-top">
         <div className="flex items-center gap-2">
           <Building2 className="h-6 w-6 text-primary" />
           <span className="text-lg font-semibold">Comités</span>
@@ -215,7 +215,7 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t p-3">
+      <SidebarFooter className="border-t p-3 safe-area-inset-bottom">
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user?.profileImageUrl || undefined} />

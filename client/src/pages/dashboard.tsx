@@ -195,7 +195,7 @@ export default function DashboardPage() {
                         </div>
                         {membership && (
                           <Badge variant="secondary" className="text-xs">
-                            {roleLabels[membership.role] || membership.role}
+                            {roleLabels[membership.leadershipRole] || membership.leadershipRole}
                           </Badge>
                         )}
                       </div>
