@@ -172,6 +172,7 @@ export const notificationPreferences = pgTable("notification_preferences", {
   shiftReminders: boolean("shift_reminders").notNull().default(true),
   activityReminders: boolean("activity_reminders").notNull().default(true),
   reminderMinutesBefore: integer("reminder_minutes_before").notNull().default(60),
+  reminderMinutesArray: integer("reminder_minutes_array").array(),
   pushEnabled: boolean("push_enabled").notNull().default(false),
   pushSubscription: text("push_subscription"),
   createdAt: timestamp("created_at").defaultNow(),

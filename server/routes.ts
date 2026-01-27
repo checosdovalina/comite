@@ -2186,14 +2186,17 @@ async function sendScheduledNotifications() {
     
     try {
       const subscription = JSON.parse(prefs.pushSubscription);
-      const reminderMinutes = prefs.reminderMinutesBefore || 60;
+      const reminderTimesArray = (prefs as any).reminderMinutesArray && (prefs as any).reminderMinutesArray.length > 0
+        ? (prefs as any).reminderMinutesArray
+        : [prefs.reminderMinutesBefore || 60];
       
-      // Check for upcoming attendance slots
+      // Check for upcoming attendance slots for each reminder time
       if (prefs.shiftReminders) {
-        const userAttendances = await storage.getUserAttendancesForNotification(prefs.userId, reminderMinutes);
-        for (const attendance of userAttendances) {
-          const notifKey = getNotificationKey(prefs.userId, "attendance", attendance.id, reminderMinutes);
-          if (sentNotifications.has(notifKey)) continue;
+        for (const reminderMinutes of reminderTimesArray) {
+          const userAttendances = await storage.getUserAttendancesForNotification(prefs.userId, reminderMinutes);
+          for (const attendance of userAttendances) {
+            const notifKey = getNotificationKey(prefs.userId, "attendance", attendance.id, reminderMinutes);
+            if (sentNotifications.has(notifKey)) continue;
           
           // Create scheduled notification record for tracking
           const existingNotif = await storage.getNotificationByReference(prefs.userId, "attendance_reminder", attendance.id);
@@ -2240,63 +2243,66 @@ async function sendScheduledNotifications() {
           if (notificationId) {
             await storage.updateNotificationStatus(notificationId, "sent", new Date());
           }
-          sentNotifications.set(notifKey, Date.now());
+            sentNotifications.set(notifKey, Date.now());
+          }
         }
       }
       
-      // Check for upcoming activities
+      // Check for upcoming activities for each reminder time
       if (prefs.activityReminders) {
-        const userActivities = await storage.getUserActivitiesForNotification(prefs.userId, reminderMinutes);
-        for (const activity of userActivities) {
-          const notifKey = getNotificationKey(prefs.userId, "activity", activity.id, reminderMinutes);
-          if (sentNotifications.has(notifKey)) continue;
-          
-          // Create scheduled notification record for tracking
-          const existingNotif = await storage.getNotificationByReference(prefs.userId, "activity_reminder", activity.id);
-          let notificationId = existingNotif?.id;
-          
-          if (!existingNotif) {
-            const scheduledNotif = await storage.createScheduledNotification({
-              userId: prefs.userId,
-              type: "activity_reminder",
-              referenceId: activity.id,
-              title: "Recordatorio de Actividad",
-              body: `${activity.title} - en ${reminderMinutes} minutos`,
-              scheduledAt: new Date(),
-              status: "pending",
-              snoozeCount: 0,
-            });
-            notificationId = scheduledNotif.id;
-          }
-          
-          await webpush.sendNotification(
-            subscription,
-            JSON.stringify({
-              title: "Recordatorio de Actividad",
-              body: `${activity.title} - en ${reminderMinutes} minutos`,
-              icon: "/icons/icon-192x192.png",
-              badge: "/icons/icon-72x72.png",
-              tag: `activity-${activity.id}`,
-              renotify: true,
-              requireInteraction: true,
-              data: { 
-                url: "/activities",
-                notificationId,
+        for (const reminderMinutes of reminderTimesArray) {
+          const userActivities = await storage.getUserActivitiesForNotification(prefs.userId, reminderMinutes);
+          for (const activity of userActivities) {
+            const notifKey = getNotificationKey(prefs.userId, "activity", activity.id, reminderMinutes);
+            if (sentNotifications.has(notifKey)) continue;
+            
+            // Create scheduled notification record for tracking
+            const existingNotif = await storage.getNotificationByReference(prefs.userId, "activity_reminder", activity.id);
+            let notificationId = existingNotif?.id;
+            
+            if (!existingNotif) {
+              const scheduledNotif = await storage.createScheduledNotification({
+                userId: prefs.userId,
                 type: "activity_reminder",
-                referenceId: activity.id
-              },
-              actions: [
-                { action: "confirm", title: "Confirmar" },
-                { action: "snooze-5", title: "+5 min" },
-                { action: "snooze-15", title: "+15 min" }
-              ]
-            })
-          );
-          
-          if (notificationId) {
-            await storage.updateNotificationStatus(notificationId, "sent", new Date());
+                referenceId: activity.id,
+                title: "Recordatorio de Actividad",
+                body: `${activity.title} - en ${reminderMinutes} minutos`,
+                scheduledAt: new Date(),
+                status: "pending",
+                snoozeCount: 0,
+              });
+              notificationId = scheduledNotif.id;
+            }
+            
+            await webpush.sendNotification(
+              subscription,
+              JSON.stringify({
+                title: "Recordatorio de Actividad",
+                body: `${activity.title} - en ${reminderMinutes} minutos`,
+                icon: "/icons/icon-192x192.png",
+                badge: "/icons/icon-72x72.png",
+                tag: `activity-${activity.id}-${reminderMinutes}`,
+                renotify: true,
+                requireInteraction: true,
+                data: { 
+                  url: "/activities",
+                  notificationId,
+                  type: "activity_reminder",
+                  referenceId: activity.id
+                },
+                actions: [
+                  { action: "confirm", title: "Confirmar" },
+                  { action: "snooze-5", title: "+5 min" },
+                  { action: "snooze-15", title: "+15 min" }
+                ]
+              })
+            );
+            
+            if (notificationId) {
+              await storage.updateNotificationStatus(notificationId, "sent", new Date());
+            }
+            sentNotifications.set(notifKey, Date.now());
           }
-          sentNotifications.set(notifKey, Date.now());
         }
       }
     } catch (error) {

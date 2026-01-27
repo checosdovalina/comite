@@ -62,6 +62,7 @@ export default function SettingsPage() {
     shiftReminders: boolean;
     activityReminders: boolean;
     reminderMinutesBefore: number;
+    reminderMinutesArray: number[] | null;
     pushEnabled: boolean;
   }>({
     queryKey: ["/api/notification-preferences"],
@@ -96,11 +97,14 @@ export default function SettingsPage() {
   // Update local state when preferences are loaded
   useEffect(() => {
     if (preferences) {
+      const times = preferences.reminderMinutesArray && preferences.reminderMinutesArray.length > 0
+        ? preferences.reminderMinutesArray
+        : [preferences.reminderMinutesBefore || 60];
       setNotificationSettings(prev => ({
         ...prev,
         shiftReminders: preferences.shiftReminders,
         activityReminders: preferences.activityReminders,
-        reminderTimes: [preferences.reminderMinutesBefore || 60],
+        reminderTimes: times,
       }));
       setHasChanges(false);
     }
@@ -112,6 +116,7 @@ export default function SettingsPage() {
       shiftReminders: boolean;
       activityReminders: boolean;
       reminderMinutesBefore: number;
+      reminderMinutesArray: number[];
     }) => {
       return apiRequest("PUT", "/api/notification-preferences", data);
     },
@@ -126,11 +131,26 @@ export default function SettingsPage() {
   });
 
   const handleSavePreferences = () => {
+    const sortedTimes = [...notificationSettings.reminderTimes].sort((a, b) => a - b);
     savePreferencesMutation.mutate({
       shiftReminders: notificationSettings.shiftReminders,
       activityReminders: notificationSettings.activityReminders,
-      reminderMinutesBefore: notificationSettings.reminderTimes[0] || 60,
+      reminderMinutesBefore: sortedTimes[0] || 60,
+      reminderMinutesArray: sortedTimes,
     });
+  };
+
+  const toggleReminderTime = (value: number) => {
+    setNotificationSettings(prev => {
+      const times = prev.reminderTimes.includes(value)
+        ? prev.reminderTimes.filter(t => t !== value)
+        : [...prev.reminderTimes, value];
+      return {
+        ...prev,
+        reminderTimes: times.length > 0 ? times : [60],
+      };
+    });
+    setHasChanges(true);
   };
 
   const updateSetting = <K extends keyof typeof notificationSettings>(
@@ -564,13 +584,18 @@ export default function SettingsPage() {
                         key={option.value}
                         variant={notificationSettings.reminderTimes.includes(option.value) ? "default" : "outline"}
                         size="sm"
-                        onClick={() => updateSetting("reminderTimes", [option.value])}
+                        onClick={() => toggleReminderTime(option.value)}
                         data-testid={`button-reminder-${option.value}`}
                       >
                         {option.label}
                       </Button>
                     ))}
                   </div>
+                  {notificationSettings.reminderTimes.length > 1 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Recibirás notificaciones en cada tiempo seleccionado
+                    </p>
+                  )}
                 </div>
               </>
             )}
