@@ -278,6 +278,7 @@ export const documents = pgTable("documents", {
   uploadedByUserId: varchar("uploaded_by_user_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),
+  category: text("category"),
   objectPath: text("object_path").notNull(),
   fileSize: integer("file_size"),
   mimeType: text("mime_type"),

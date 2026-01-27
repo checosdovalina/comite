@@ -82,6 +82,17 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
+const documentCategories = [
+  { value: "actas", label: "Actas" },
+  { value: "informes", label: "Informes" },
+  { value: "oficios", label: "Oficios" },
+  { value: "formatos", label: "Formatos" },
+  { value: "manuales", label: "Manuales" },
+  { value: "capacitacion", label: "Capacitación" },
+  { value: "normatividad", label: "Normatividad" },
+  { value: "otros", label: "Otros" },
+];
+
 export default function Documents() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -90,8 +101,10 @@ export default function Documents() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadDescription, setUploadDescription] = useState("");
+  const [uploadCategory, setUploadCategory] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const { data: memberships = [], isLoading: membershipsLoading } = useQuery<any[]>({
@@ -202,6 +215,7 @@ export default function Documents() {
       await apiRequest("POST", "/api/documents", {
         name: selectedFile.name,
         description: uploadDescription || null,
+        category: uploadCategory || null,
         objectPath: objectKey,
         fileSize: selectedFile.size,
         mimeType: selectedFile.type,
@@ -217,6 +231,7 @@ export default function Documents() {
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
       setUploadDescription("");
+      setUploadCategory("");
       refetchDocuments();
 
     } catch (error: any) {
@@ -231,10 +246,12 @@ export default function Documents() {
     }
   };
 
-  const filteredDocuments = documents.filter((doc) =>
-    doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (doc.description?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (doc.description?.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCategory = categoryFilter === "all" || doc.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
 
   if (membershipsLoading) {
     return (
@@ -276,25 +293,40 @@ export default function Documents() {
         </div>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar documentos..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-          data-testid="input-search-documents"
-        />
-        {searchQuery && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-            onClick={() => setSearchQuery("")}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar documentos..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-search-documents"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => setSearchQuery("")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-full sm:w-48" data-testid="select-category-filter">
+            <SelectValue placeholder="Todas las categorías" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las categorías</SelectItem>
+            {documentCategories.map((cat) => (
+              <SelectItem key={cat.value} value={cat.value}>
+                {cat.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {documentsLoading ? (
@@ -345,6 +377,11 @@ export default function Documents() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
+                  {doc.category && (
+                    <Badge variant="secondary" className="mb-2">
+                      {documentCategories.find(c => c.value === doc.category)?.label || doc.category}
+                    </Badge>
+                  )}
                   {doc.description && (
                     <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                       {doc.description}
@@ -408,6 +445,21 @@ export default function Documents() {
               </div>
             )}
             <div className="space-y-2">
+              <Label htmlFor="category">Categoría</Label>
+              <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                <SelectTrigger data-testid="select-document-category">
+                  <SelectValue placeholder="Selecciona una categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {documentCategories.map((cat) => (
+                    <SelectItem key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="description">Descripción (opcional)</Label>
               <Textarea
                 id="description"
@@ -425,6 +477,7 @@ export default function Documents() {
                 setIsUploadDialogOpen(false);
                 setSelectedFile(null);
                 setUploadDescription("");
+                setUploadCategory("");
               }}
             >
               Cancelar
