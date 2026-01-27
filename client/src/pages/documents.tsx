@@ -187,10 +187,8 @@ export default function Documents() {
 
     setIsUploading(true);
     try {
-      const objectKey = `.private/documents/${Date.now()}_${selectedFile.name}`;
-
       const urlResponse = await apiRequest("POST", "/api/storage/upload-url", {
-        objectKey,
+        filename: selectedFile.name,
         contentType: selectedFile.type,
       });
 
@@ -198,25 +196,46 @@ export default function Documents() {
         throw new Error("Failed to get upload URL");
       }
 
-      const { uploadUrl, publicUrl } = await urlResponse.json();
+      const uploadInfo = await urlResponse.json();
+      let finalObjectPath: string;
 
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        body: selectedFile,
-        headers: {
-          "Content-Type": selectedFile.type,
-        },
-      });
+      if (uploadInfo.usePresignedUrl) {
+        const uploadResponse = await fetch(uploadInfo.uploadUrl, {
+          method: "PUT",
+          body: selectedFile,
+          headers: {
+            "Content-Type": selectedFile.type,
+          },
+        });
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file");
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload file");
+        }
+        finalObjectPath = uploadInfo.objectPath;
+      } else {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("objectKey", uploadInfo.objectKey);
+
+        const directUploadResponse = await fetch("/api/storage/upload-direct", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+
+        if (!directUploadResponse.ok) {
+          throw new Error("Failed to upload file");
+        }
+        
+        const result = await directUploadResponse.json();
+        finalObjectPath = result.objectPath;
       }
 
       await apiRequest("POST", "/api/documents", {
         name: selectedFile.name,
         description: uploadDescription || null,
         category: uploadCategory || null,
-        objectPath: objectKey,
+        objectPath: finalObjectPath,
         fileSize: selectedFile.size,
         mimeType: selectedFile.type,
         teamId: activeTeamId,

@@ -1,37 +1,36 @@
 import type { Express, RequestHandler } from "express";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { LocalFileStorageService } from "./localFileStorage";
 import { isAuthenticated } from "../../auth";
+import multer from "multer";
+import { randomUUID } from "crypto";
+import * as path from "path";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+});
+
+function isReplitEnvironment(): boolean {
+  return !!(process.env.REPL_ID || process.env.REPLIT_DEPLOYMENT);
+}
 
 /**
  * Register object storage routes for file uploads.
- *
- * This provides example routes for the presigned URL upload flow:
- * 1. POST /api/uploads/request-url - Get a presigned URL for uploading
- * 2. The client then uploads directly to the presigned URL
- *
- * IMPORTANT: These routes require authentication.
+ * Supports both Replit Object Storage (presigned URLs) and local file storage (VPS).
  */
 export function registerObjectStorageRoutes(app: Express): void {
   const objectStorageService = new ObjectStorageService();
+  const localFileStorage = new LocalFileStorageService();
+  const useReplit = isReplitEnvironment();
+
+  console.log(`[Storage] Using ${useReplit ? "Replit Object Storage" : "Local File Storage"}`);
 
   /**
-   * Request a presigned URL for file upload.
-   *
-   * Request body (JSON):
-   * {
-   *   "name": "filename.jpg",
-   *   "size": 12345,
-   *   "contentType": "image/jpeg"
-   * }
-   *
-   * Response:
-   * {
-   *   "uploadURL": "https://storage.googleapis.com/...",
-   *   "objectPath": "/objects/uploads/uuid"
-   * }
-   *
-   * IMPORTANT: The client should NOT send the file to this endpoint.
-   * Send JSON metadata only, then upload the file directly to uploadURL.
+   * Request a presigned URL for file upload (Replit only)
+   * or get upload endpoint info for direct upload (VPS).
    */
   app.post("/api/uploads/request-url", async (req, res) => {
     try {
@@ -43,17 +42,22 @@ export function registerObjectStorageRoutes(app: Express): void {
         });
       }
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      if (useReplit) {
+        const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+        const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
-      // Extract object path from the presigned URL for later reference
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
-
-      res.json({
-        uploadURL,
-        objectPath,
-        // Echo back the metadata for client convenience
-        metadata: { name, size, contentType },
-      });
+        res.json({
+          uploadURL,
+          objectPath,
+          metadata: { name, size, contentType },
+        });
+      } else {
+        res.json({
+          useDirectUpload: true,
+          uploadEndpoint: "/api/storage/upload-direct",
+          metadata: { name, size, contentType },
+        });
+      }
     } catch (error) {
       console.error("Error generating upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
@@ -61,17 +65,17 @@ export function registerObjectStorageRoutes(app: Express): void {
   });
 
   /**
-   * Serve uploaded objects.
-   *
-   * GET /objects/:objectPath(*)
-   *
-   * This serves files from object storage. For public files, no auth needed.
-   * For protected files, add authentication middleware and ACL checks.
+   * Serve uploaded objects (Replit only).
    */
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      await objectStorageService.downloadObject(objectFile, res);
+      if (useReplit) {
+        const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+        await objectStorageService.downloadObject(objectFile, res);
+      } else {
+        const objectPath = req.params.objectPath;
+        await localFileStorage.downloadFile(objectPath, res);
+      }
     } catch (error) {
       console.error("Error serving object:", error);
       if (error instanceof ObjectNotFoundError) {
@@ -83,31 +87,37 @@ export function registerObjectStorageRoutes(app: Express): void {
 
   /**
    * Get presigned upload URL for file upload.
-   *
-   * POST /api/storage/upload-url
-   *
-   * Request body (JSON):
-   * {
-   *   "objectKey": ".private/documents/filename.pdf",
-   *   "contentType": "application/pdf"
-   * }
+   * For VPS, returns info for direct upload endpoint.
    */
   app.post("/api/storage/upload-url", isAuthenticated, async (req, res) => {
     try {
-      const { objectKey, contentType } = req.body;
+      const { objectKey, contentType, filename } = req.body;
 
-      if (!objectKey) {
+      if (!objectKey && !filename) {
         return res.status(400).json({
-          error: "Missing required field: objectKey",
+          error: "Missing required field: objectKey or filename",
         });
       }
 
-      const uploadUrl = await objectStorageService.getObjectEntityUploadURL(objectKey);
-
-      res.json({
-        uploadUrl,
-        publicUrl: `/api/storage/download/${encodeURIComponent(objectKey)}`,
-      });
+      if (useReplit) {
+        const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
+        const generatedObjectPath = objectStorageService.normalizeObjectEntityPath(uploadUrl);
+        res.json({
+          uploadUrl,
+          objectPath: generatedObjectPath,
+          publicUrl: `/api/storage/download/${encodeURIComponent(generatedObjectPath)}`,
+          usePresignedUrl: true,
+        });
+      } else {
+        const generatedKey = localFileStorage.generateObjectKey(filename || objectKey);
+        res.json({
+          useDirectUpload: true,
+          uploadEndpoint: "/api/storage/upload-direct",
+          objectKey: generatedKey,
+          publicUrl: `/api/storage/download/${encodeURIComponent(generatedKey)}`,
+          usePresignedUrl: false,
+        });
+      }
     } catch (error) {
       console.error("Error generating upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
@@ -115,23 +125,74 @@ export function registerObjectStorageRoutes(app: Express): void {
   });
 
   /**
-   * Download a file from object storage.
-   *
-   * GET /api/storage/download/:objectPath(*)
+   * Direct file upload endpoint (for VPS and fallback).
+   * Uses multipart form data.
+   */
+  app.post(
+    "/api/storage/upload-direct",
+    isAuthenticated,
+    upload.single("file"),
+    async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: "No file uploaded" });
+        }
+
+        const objectKey = req.body.objectKey || localFileStorage.generateObjectKey(req.file.originalname);
+        
+        await localFileStorage.saveFile(req.file.buffer, objectKey);
+
+        res.json({
+          success: true,
+          objectPath: objectKey,
+          publicUrl: `/api/storage/download/${encodeURIComponent(objectKey)}`,
+        });
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        res.status(500).json({ error: "Failed to upload file" });
+      }
+    }
+  );
+
+  /**
+   * Download a file from storage.
    * Requires authentication for private files.
    */
   app.get("/api/storage/download/:objectPath(*)", isAuthenticated, async (req, res) => {
     try {
       const objectPath = decodeURIComponent(req.params.objectPath);
-      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
-      await objectStorageService.downloadObject(objectFile, res);
+      
+      if (useReplit) {
+        const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+        await objectStorageService.downloadObject(objectFile, res);
+      } else {
+        await localFileStorage.downloadFile(objectPath, res);
+      }
     } catch (error) {
       console.error("Error serving object:", error);
-      if (error instanceof ObjectNotFoundError) {
+      if (error instanceof ObjectNotFoundError || (error as Error).message === "File not found") {
         return res.status(404).json({ error: "Object not found" });
       }
       return res.status(500).json({ error: "Failed to serve object" });
     }
   });
-}
 
+  /**
+   * Delete a file from storage.
+   * Requires authentication.
+   */
+  app.delete("/api/storage/delete/:objectPath(*)", isAuthenticated, async (req, res) => {
+    try {
+      const objectPath = decodeURIComponent(req.params.objectPath);
+      
+      if (!useReplit) {
+        await localFileStorage.deleteFile(objectPath);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      res.status(500).json({ error: "Failed to delete file" });
+    }
+  });
+}
