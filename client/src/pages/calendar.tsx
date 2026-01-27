@@ -1747,7 +1747,7 @@ export default function CalendarPage() {
 
       {/* Activity Creation Dialog */}
       <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5" />
@@ -1758,7 +1758,7 @@ export default function CalendarPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-2">
             <div className="space-y-2">
               <Label htmlFor="activity-title">Título *</Label>
               <Input

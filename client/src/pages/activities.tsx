@@ -650,7 +650,7 @@ export default function ActivitiesPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingActivity ? "Editar Actividad" : "Nueva Actividad"}
@@ -662,7 +662,7 @@ export default function ActivitiesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-2">
             <div className="space-y-2">
               <Label htmlFor="committee">Comité</Label>
               <Select
